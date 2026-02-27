@@ -1,0 +1,22 @@
+services:
+  firefly-merge-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: firefly-merge-web
+    ports:
+      - "8080:8080"
+    environment:
+      FIREFLY_WEB_DATA_DIR: /data
+      APP_CONFIG_PATH: /config/config.yml
+      # Optional Firefly upload overrides:
+      # FIREFLY_URL: "https://data-importer.example.com/autoupload"
+      # FIREFLY_SECRET: "secret"
+      # FIREFLY_TOKEN: "token"
+      # FIREFLY_JSON: "/config/import_config.json"
+      # FIREFLY_TIMEOUT: "30"
+      # FIREFLY_BATCH_SIZE: "50"
+    volumes:
+      - ${FIREFLY_MERGE_DATA_DIR:-./data}:/data
+      - ${FIREFLY_MERGE_CONFIG_DIR:-../firefly-merge-config}:/config
+    restart: unless-stopped

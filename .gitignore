@@ -1,0 +1,12 @@
+output/*
+input/*
+balances/*
+*pycache*
+data/*
+output_check/*
+development plan
+config.yml
+import_config.json
+.env
+.env.*
+!.env.example

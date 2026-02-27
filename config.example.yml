@@ -1,0 +1,23 @@
+own_accounts:
+  - "NL00BANK0000000000"
+  - "DE00BANK0000000000"
+
+currency_code: "EUR"
+timezone: "Europe/Berlin"
+
+account_aliases:
+  "NL00BANK0000000000": "Main Account"
+  "DE00BANK0000000000": "Savings Account"
+
+savings_accounts:
+  SAMPLE_SAVINGS_1:
+    account: "DE00BANK0000000000"
+    name: "Savings"
+
+firefly:
+  enabled: false
+  url: "https://your-firefly-importer.example.com/autoupload"
+  secret: "CHANGE_ME"
+  token: "CHANGE_ME"
+  json_config: "/config/import_config.json"
+  timeout: 60
