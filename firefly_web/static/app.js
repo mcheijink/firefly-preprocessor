@@ -629,17 +629,17 @@ function renderJob(job) {
   statsEl.innerHTML = `
     <h3>Stats</h3>
     <ul>
-      <li>Merged rows: ${stats.merged_rows ?? 0}</li>
-      <li>Duplicate rows: ${stats.duplicate_rows ?? 0}</li>
-      <li>Duplicate review: ${reviewLabel} (pending: ${pendingDup}, restored: ${duplicateReviewStatus.restored_rows_total ?? 0})</li>
-      <li>Global duplicates added: ${stats.global_duplicates_added ?? 0}</li>
-      <li>Fingerprints inserted: ${stats.global_rows_inserted ?? 0}</li>
+      <li>Merged rows: ${escapeHtml(String(stats.merged_rows ?? 0))}</li>
+      <li>Duplicate rows: ${escapeHtml(String(stats.duplicate_rows ?? 0))}</li>
+      <li>Duplicate review: ${escapeHtml(reviewLabel)} (pending: ${escapeHtml(String(pendingDup))}, restored: ${escapeHtml(String(duplicateReviewStatus.restored_rows_total ?? 0))})</li>
+      <li>Global duplicates added: ${escapeHtml(String(stats.global_duplicates_added ?? 0))}</li>
+      <li>Fingerprints inserted: ${escapeHtml(String(stats.global_rows_inserted ?? 0))}</li>
     </ul>
   `;
 
   const urls = job.artifact_urls || {};
   const links = Object.entries(urls)
-    .map(([key, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${key}</a></li>`)
+    .map(([key, url]) => `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(key)}</a></li>`)
     .join("");
   artifactsEl.innerHTML = `<h3>Artifacts</h3><ul>${links || "<li>None</li>"}</ul>`;
 

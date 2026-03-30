@@ -125,7 +125,7 @@ class JobStore:
         con.row_factory = sqlite3.Row
         # Some mounted filesystems do not support SQLite's default journal locking.
         # MEMORY journal mode keeps the rollback journal in RAM while preserving DB persistence.
-        con.execute("PRAGMA journal_mode=MEMORY;")
+        con.execute("PRAGMA journal_mode=WAL;")
         con.execute("PRAGMA synchronous=NORMAL;")
         return con
 
