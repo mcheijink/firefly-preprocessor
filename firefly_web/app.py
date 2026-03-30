@@ -212,9 +212,9 @@ class ConfigResetRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "default_config_path": str(settings.default_config_path),
             "data_dir": str(settings.data_dir),
         },
@@ -224,9 +224,9 @@ async def index(request: Request) -> HTMLResponse:
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "config.html",
         {
-            "request": request,
             "default_config_path": str(settings.default_config_path),
             "data_dir": str(settings.data_dir),
         },

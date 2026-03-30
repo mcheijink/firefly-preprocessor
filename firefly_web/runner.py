@@ -407,7 +407,8 @@ class JobRunner:
                 "target_seconds": round(target_seconds, 3),
             }
             if summary_lines:
-                log(f"Firefly response summary:\n{'\n\n'.join(summary_lines)}")
+                _summary_sep = "\n\n"
+                log(f"Firefly response summary:\n{_summary_sep.join(summary_lines)}")
 
             if failed_rows == 0:
                 self.store.set_firefly_export_completed(
