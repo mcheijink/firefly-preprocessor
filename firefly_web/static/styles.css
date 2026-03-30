@@ -948,3 +948,97 @@ details.advanced-options > .details-body {
   cursor: pointer;
   font-weight: 600;
 }
+
+/* ── Sortable / draggable column headers ────────────────────────────────── */
+th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+th.th-sortable:hover {
+  background: var(--accent-soft);
+}
+th.th-sortable::after {
+  content: " ⇅";
+  opacity: 0.35;
+  font-size: 0.75em;
+}
+th[data-sort-asc]::after  { content: " ▲"; opacity: 1; color: var(--accent); }
+th[data-sort-desc]::after { content: " ▼"; opacity: 1; color: var(--accent); }
+
+th.th-draggable {
+  cursor: grab;
+}
+th.th-draggable.th-sortable {
+  cursor: pointer;
+}
+th.th-dragging {
+  opacity: 0.4;
+}
+th.th-drag-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+/* ── Column picker panel ────────────────────────────────────────────────── */
+.tcm-picker-panel {
+  position: fixed;
+  z-index: 8500;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.16);
+  padding: 0.75rem;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.tcm-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.tcm-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.tcm-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  cursor: default;
+  font-size: 0.875rem;
+}
+.tcm-picker-item:hover,
+.tcm-picker-item.drag-over {
+  background: var(--accent-soft);
+}
+.tcm-picker-item.dragging { opacity: 0.4; }
+.tcm-drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.tcm-picker-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  flex: 1;
+}
+.tcm-picker-item input[type="checkbox"] {
+  flex-shrink: 0;
+}

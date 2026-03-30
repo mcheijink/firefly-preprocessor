@@ -157,6 +157,7 @@
                 <button type="button" id="refresh-dup-review">Refresh</button>
                 <button type="button" id="select-visible-dup">Select Visible</button>
                 <button type="button" id="clear-dup-selection">Clear Selection</button>
+                <button type="button" id="dup-columns-btn" class="secondary-btn">⚙ Columns</button>
                 <label for="dup-page-size">Page size</label>
                 <select id="dup-page-size">
                   <option value="10">10</option>
@@ -202,19 +203,19 @@
             <table id="duplicates-table" class="responsive-table">
               <thead>
                 <tr>
-                  <th><input type="checkbox" id="toggle-all-dup-visible"></th>
-                  <th>Dropped ID</th>
-                  <th>Reason</th>
-                  <th>Reasoning</th>
-                  <th>Dropped Date</th>
-                  <th>Dropped Amount</th>
-                  <th>Dropped Description</th>
-                  <th>Dropped Source</th>
-                  <th>Kept ID</th>
-                  <th>Kept Date</th>
-                  <th>Kept Amount</th>
-                  <th>Kept Description</th>
-                  <th>Details</th>
+                  <th data-col="select"><input type="checkbox" id="toggle-all-dup-visible"></th>
+                  <th data-col="dropped_id">Dropped ID</th>
+                  <th data-col="reason" data-sort-key="reason" class="th-sortable">Reason</th>
+                  <th data-col="reasoning" data-sort-key="reasoning" class="th-sortable">Reasoning</th>
+                  <th data-col="dropped_date" data-sort-key="date" class="th-sortable">Dropped Date</th>
+                  <th data-col="dropped_amount" data-sort-key="amount" class="th-sortable">Dropped Amount</th>
+                  <th data-col="dropped_description" data-sort-key="description" class="th-sortable">Dropped Description</th>
+                  <th data-col="dropped_source" data-sort-key="source_file" class="th-sortable">Dropped Source</th>
+                  <th data-col="kept_id">Kept ID</th>
+                  <th data-col="kept_date" data-sort-key="kept_date" class="th-sortable">Kept Date</th>
+                  <th data-col="kept_amount" data-sort-key="kept_amount" class="th-sortable">Kept Amount</th>
+                  <th data-col="kept_description">Kept Description</th>
+                  <th data-col="details">Details</th>
                 </tr>
               </thead>
               <tbody id="duplicates-body"></tbody>
@@ -258,6 +259,7 @@
               <div class="small-controls">
                 <button type="button" id="select-visible">Select Visible</button>
                 <button type="button" id="clear-selection">Clear Selection</button>
+                <button type="button" id="tx-columns-btn" class="secondary-btn">⚙ Columns</button>
                 <label for="tx-page-size">Page size</label>
                 <select id="tx-page-size">
                   <option value="10">10</option>
@@ -325,17 +327,17 @@
             <table id="transactions-table" class="responsive-table">
               <thead>
                 <tr>
-                  <th><input type="checkbox" id="toggle-all-visible"></th>
-                  <th>ID</th>
-                  <th>Decision</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Source Account</th>
-                  <th>Destination Account</th>
-                  <th>Dropped Pairing</th>
-                  <th>Details</th>
+                  <th data-col="select"><input type="checkbox" id="toggle-all-visible"></th>
+                  <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+                  <th data-col="decision" data-sort-key="decision" class="th-sortable">Decision</th>
+                  <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+                  <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+                  <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+                  <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+                  <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+                  <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+                  <th data-col="dropped_pairing">Dropped Pairing</th>
+                  <th data-col="details">Details</th>
                 </tr>
               </thead>
               <tbody id="transactions-body"></tbody>
@@ -375,6 +377,7 @@
               <option value="desc">Descending</option>
             </select>
             <button type="button" id="refresh-ollama-events">Refresh</button>
+            <button type="button" id="ollama-columns-btn" class="secondary-btn">⚙ Columns</button>
             <button type="button" id="stop-ollama-queue" class="secondary-btn">Stop Queue</button>
             <button type="button" id="delete-ollama-queue" class="danger-btn">Delete Queue</button>
           </div>
@@ -392,15 +395,15 @@
           <table id="ollama-events-table" class="responsive-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Source Account</th>
-                <th>Destination Account</th>
-                <th>Actions</th>
+                <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+                <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+                <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+                <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+                <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+                <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+                <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+                <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+                <th data-col="actions">Actions</th>
               </tr>
             </thead>
             <tbody id="ollama-events-body"></tbody>
@@ -429,6 +432,7 @@
             <button type="button" id="start-firefly-export">Start Export</button>
             <button type="button" id="stop-firefly-export" class="secondary-btn">Stop Export Queue</button>
             <button type="button" id="delete-firefly-export" class="danger-btn">Delete Export Queues</button>
+            <button type="button" id="exports-columns-btn" class="secondary-btn">⚙ Columns</button>
           </div>
           <p id="export-summary" class="hint">Select a completed merge job first.</p>
 
@@ -436,14 +440,14 @@
             <table id="exports-table" class="responsive-table">
               <thead>
                 <tr>
-                  <th>Export ID</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Updated</th>
-                  <th>Rows</th>
-                  <th>Batches</th>
-                  <th>Message</th>
-                  <th>Actions</th>
+                  <th data-col="export_id" data-sort-key="id" class="th-sortable">Export ID</th>
+                  <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+                  <th data-col="created" data-sort-key="created" class="th-sortable">Created</th>
+                  <th data-col="updated" data-sort-key="updated" class="th-sortable">Updated</th>
+                  <th data-col="rows" data-sort-key="rows" class="th-sortable">Rows</th>
+                  <th data-col="batches" data-sort-key="batches" class="th-sortable">Batches</th>
+                  <th data-col="message">Message</th>
+                  <th data-col="actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="exports-body"></tbody>
@@ -482,6 +486,7 @@
               <option value="desc">Descending</option>
             </select>
             <button type="button" id="refresh-export-events">Refresh Queue</button>
+            <button type="button" id="export-events-columns-btn" class="secondary-btn">⚙ Columns</button>
           </div>
           <p id="export-events-metrics" class="hint">No export queue metrics yet.</p>
           <p id="export-events-summary" class="hint"></p>
@@ -496,16 +501,16 @@
             <table id="export-events-table" class="responsive-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Source Account</th>
-                  <th>Destination Account</th>
-                  <th>Batch</th>
-                  <th>Actions</th>
+                  <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+                  <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+                  <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+                  <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+                  <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+                  <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+                  <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+                  <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+                  <th data-col="batch" data-sort-key="batch_number" class="th-sortable">Batch</th>
+                  <th data-col="actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="export-events-body"></tbody>
@@ -521,6 +526,7 @@
           <h2>Previous Merge Jobs</h2>
           <div class="small-controls">
             <button type="button" id="refresh-history-tab">Refresh</button>
+            <button type="button" id="history-columns-btn" class="secondary-btn">⚙ Columns</button>
           </div>
         </div>
         <p class="hint">Open a previous job to inspect status, balances, transactions, and export details in Merge.</p>
@@ -528,12 +534,12 @@
           <table id="history-table-tab" class="responsive-table">
             <thead>
               <tr>
-                <th>Job ID</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Merged</th>
-                <th>Duplicates</th>
-                <th>Actions</th>
+                <th data-col="job_id" data-sort-key="id" class="th-sortable">Job ID</th>
+                <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+                <th data-col="created" data-sort-key="created" class="th-sortable">Created</th>
+                <th data-col="merged" data-sort-key="merged" class="th-sortable">Merged</th>
+                <th data-col="duplicates" data-sort-key="duplicates" class="th-sortable">Duplicates</th>
+                <th data-col="actions">Actions</th>
               </tr>
             </thead>
             <tbody id="history-body-tab"></tbody>

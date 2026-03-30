@@ -1223,6 +1223,7 @@ async function loadTransactions(reset = false) {
   txBody.innerHTML = rows.length
     ? rows.map((row) => renderTransactionRow(row)).join("")
     : `<tr><td colspan="11">No transactions for current filters.</td></tr>`;
+  if (tcmTransactions) tcmTransactions.applyToTable();
 
   const totalPages = getTxTotalPages();
   if (txPage > totalPages) {
@@ -1258,17 +1259,17 @@ function renderTransactionRow(row) {
 
   return `
     <tr class="${rowClass}${selectedClass}" data-row-source="${escapeHtml(rowSource)}" data-row-local-index="${rowLocalIndex}" data-row-id="${escapeHtml(rowId)}" data-row-key="${escapeHtml(rowKey)}">
-      <td data-label="Select"><input type="checkbox" class="row-checkbox" data-merge-row-index="${mergeRowIndex}" ${checked} ${disabled}></td>
-      <td data-label="ID"><code>${escapeHtml(rowId)}</code></td>
-      <td data-label="Decision"><span class="decision-badge ${decision}">${escapeHtml(decisionLabel)}</span></td>
-      <td data-label="Date">${escapeHtml(row.date || "")}</td>
-      <td data-label="Amount" class="num${amountClass(row.amount)}">${escapeHtml(row.amount || "")}</td>
-      <td data-label="Category">${categoryCell}</td>
-      <td data-label="Description">${escapeHtml(row.description || "")}</td>
-      <td data-label="Source Account">${escapeHtml(row.source_account || "")}</td>
-      <td data-label="Destination Account">${escapeHtml(row.destination_account || "")}</td>
-      <td data-label="Dropped Pairing">${droppedPairingCell}</td>
-      <td data-label="Details"><button type="button" class="tx-open-detail secondary-btn" data-row-source="${escapeHtml(rowSource)}" data-row-local-index="${rowLocalIndex}" data-row-id="${escapeHtml(rowId)}">Open</button></td>
+      <td data-col="select" data-label="Select"><input type="checkbox" class="row-checkbox" data-merge-row-index="${mergeRowIndex}" ${checked} ${disabled}></td>
+      <td data-col="id" data-label="ID"><code>${escapeHtml(rowId)}</code></td>
+      <td data-col="decision" data-label="Decision"><span class="decision-badge ${decision}">${escapeHtml(decisionLabel)}</span></td>
+      <td data-col="date" data-label="Date">${escapeHtml(row.date || "")}</td>
+      <td data-col="amount" data-label="Amount" class="num${amountClass(row.amount)}">${escapeHtml(row.amount || "")}</td>
+      <td data-col="category" data-label="Category">${categoryCell}</td>
+      <td data-col="description" data-label="Description">${escapeHtml(row.description || "")}</td>
+      <td data-col="source_account" data-label="Source Account">${escapeHtml(row.source_account || "")}</td>
+      <td data-col="destination_account" data-label="Destination Account">${escapeHtml(row.destination_account || "")}</td>
+      <td data-col="dropped_pairing" data-label="Dropped Pairing">${droppedPairingCell}</td>
+      <td data-col="details" data-label="Details"><button type="button" class="tx-open-detail secondary-btn" data-row-source="${escapeHtml(rowSource)}" data-row-local-index="${rowLocalIndex}" data-row-id="${escapeHtml(rowId)}">Open</button></td>
     </tr>
   `;
 }
@@ -1539,19 +1540,19 @@ function renderDuplicateReviewRows(rows) {
       const matchText = hasMatch ? "Matched kept row" : "No kept match";
       return `
         <tr data-dup-row-index="${dupIdx}">
-          <td data-label="Select"><input type="checkbox" class="dup-row-checkbox" data-dup-row-index="${dupIdx}" ${selected}></td>
-          <td data-label="Dropped ID"><code>${escapeHtml(String(row.id || ""))}</code></td>
-          <td data-label="Reason">${escapeHtml(String(row.duplicate_reason || ""))}</td>
-          <td data-label="Reasoning">${escapeHtml(String(row.duplicate_reasoning || ""))}</td>
-          <td data-label="Dropped Date">${escapeHtml(String(row.duplicate_date || ""))}</td>
-          <td data-label="Dropped Amount" class="num">${escapeHtml(String(row.duplicate_amount || ""))}</td>
-          <td data-label="Dropped Description">${escapeHtml(String(row.duplicate_description || ""))}</td>
-          <td data-label="Dropped Source">${escapeHtml(String(row.source_file || ""))}</td>
-          <td data-label="Kept ID"><code>${escapeHtml(keptId)}</code></td>
-          <td data-label="Kept Date">${escapeHtml(String(row.kept_date || ""))}</td>
-          <td data-label="Kept Amount" class="num">${escapeHtml(String(row.kept_amount || ""))}</td>
-          <td data-label="Kept Description">${escapeHtml(String(row.kept_description || ""))}<div><span class="${matchClass}">${matchText}</span></div></td>
-          <td data-label="Details" class="actions-cell">
+          <td data-col="select" data-label="Select"><input type="checkbox" class="dup-row-checkbox" data-dup-row-index="${dupIdx}" ${selected}></td>
+          <td data-col="dropped_id" data-label="Dropped ID"><code>${escapeHtml(String(row.id || ""))}</code></td>
+          <td data-col="reason" data-label="Reason">${escapeHtml(String(row.duplicate_reason || ""))}</td>
+          <td data-col="reasoning" data-label="Reasoning">${escapeHtml(String(row.duplicate_reasoning || ""))}</td>
+          <td data-col="dropped_date" data-label="Dropped Date">${escapeHtml(String(row.duplicate_date || ""))}</td>
+          <td data-col="dropped_amount" data-label="Dropped Amount" class="num${amountClass(row.duplicate_amount)}">${escapeHtml(String(row.duplicate_amount || ""))}</td>
+          <td data-col="dropped_description" data-label="Dropped Description">${escapeHtml(String(row.duplicate_description || ""))}</td>
+          <td data-col="dropped_source" data-label="Dropped Source">${escapeHtml(String(row.source_file || ""))}</td>
+          <td data-col="kept_id" data-label="Kept ID"><code>${escapeHtml(keptId)}</code></td>
+          <td data-col="kept_date" data-label="Kept Date">${escapeHtml(String(row.kept_date || ""))}</td>
+          <td data-col="kept_amount" data-label="Kept Amount" class="num${amountClass(row.kept_amount)}">${escapeHtml(String(row.kept_amount || ""))}</td>
+          <td data-col="kept_description" data-label="Kept Description">${escapeHtml(String(row.kept_description || ""))}<div><span class="${matchClass}">${matchText}</span></div></td>
+          <td data-col="details" data-label="Details" class="actions-cell">
             <div class="small-controls">
               <button type="button" class="dup-open-dropped secondary-btn" data-row-source="duplicates" data-row-local-index="${dupIdx}" data-row-id="${escapeHtml(String(row.id || ""))}">Dropped</button>
               <button type="button" class="dup-open-kept secondary-btn" data-row-source="merged" data-row-local-index="${keptIdx}" data-row-id="${escapeHtml(keptId)}" ${keptIdx > 0 ? "" : "disabled"}>Kept</button>
@@ -1562,6 +1563,7 @@ function renderDuplicateReviewRows(rows) {
     })
     .join("");
 
+  if (tcmDuplicates) tcmDuplicates.applyToTable();
   dupBody.querySelectorAll(".dup-row-checkbox").forEach((cb) => {
     cb.addEventListener("change", (event) => {
       const idx = Number(event.target.dataset.dupRowIndex || 0);
@@ -1825,6 +1827,279 @@ function amountClass(amount) {
   const num = parseFloat(String(amount || "").replace(",", "."));
   return !isNaN(num) && num < 0 ? " amount-neg" : "";
 }
+
+/* ── TableColumnManager ─────────────────────────────────────────────────── */
+class TableColumnManager {
+  constructor({ tableId, columns, sortByEl = null, sortDirEl = null, applyEl = null, onClientSort = null, onRedraw = null }) {
+    this.tableId = tableId;
+    this.columns = columns; // [{key, label, sortKey?, defaultHidden?, alwaysVisible?}]
+    this.sortByEl = sortByEl;
+    this.sortDirEl = sortDirEl;
+    this.applyEl = applyEl;
+    this.onClientSort = onClientSort;
+    this.onRedraw = onRedraw;
+    this._dragKey = null;
+    this._styleEl = null;
+    this.state = this._loadState();
+    this._applyVisibility();
+  }
+
+  get _table() { return document.getElementById(this.tableId); }
+  _storageKey() { return `tcm3_${this.tableId}`; }
+
+  _loadState() {
+    const defaultOrder = this.columns.map((c) => c.key);
+    const defaultHidden = this.columns.filter((c) => c.defaultHidden).map((c) => c.key);
+    try {
+      const s = JSON.parse(localStorage.getItem(this._storageKey()) || "null");
+      if (s && Array.isArray(s.order)) {
+        const saved = s.order.filter((k) => defaultOrder.includes(k));
+        const added = defaultOrder.filter((k) => !saved.includes(k));
+        return {
+          order: [...saved, ...added],
+          hidden: Array.isArray(s.hidden) ? s.hidden.filter((k) => defaultOrder.includes(k)) : defaultHidden,
+        };
+      }
+    } catch {}
+    return { order: defaultOrder, hidden: defaultHidden };
+  }
+
+  _saveState() {
+    try { localStorage.setItem(this._storageKey(), JSON.stringify(this.state)); } catch {}
+  }
+
+  _applyVisibility() {
+    const id = `tcm-style-${this.tableId}`;
+    this._styleEl = document.getElementById(id);
+    if (!this._styleEl) {
+      this._styleEl = document.createElement("style");
+      this._styleEl.id = id;
+      document.head.appendChild(this._styleEl);
+    }
+    this._styleEl.textContent = this.state.hidden
+      .map((k) => `#${this.tableId} [data-col="${k}"] { display: none !important; }`)
+      .join("\n");
+  }
+
+  setHidden(key, hidden) {
+    const col = this.columns.find((c) => c.key === key);
+    if (col && col.alwaysVisible) return;
+    if (hidden) {
+      if (!this.state.hidden.includes(key)) this.state.hidden.push(key);
+    } else {
+      this.state.hidden = this.state.hidden.filter((k) => k !== key);
+    }
+    this._saveState();
+    this._applyVisibility();
+  }
+
+  // Apply stored column order to both <thead> and all <tbody> rows in the DOM.
+  applyToTable() {
+    const t = this._table;
+    if (!t) return;
+    const order = this.state.order;
+
+    const theadRow = t.querySelector("thead > tr");
+    if (theadRow) {
+      const thMap = {};
+      theadRow.querySelectorAll("[data-col]").forEach((th) => { thMap[th.dataset.col] = th; });
+      order.forEach((key) => { if (thMap[key]) theadRow.appendChild(thMap[key]); });
+      this._updateSortIndicators(theadRow);
+    }
+
+    t.querySelectorAll("tbody > tr").forEach((tr) => {
+      const tdMap = {};
+      tr.querySelectorAll("[data-col]").forEach((td) => { tdMap[td.dataset.col] = td; });
+      order.forEach((key) => { if (tdMap[key]) tr.appendChild(tdMap[key]); });
+    });
+  }
+
+  _updateSortIndicators(theadRow) {
+    const row = theadRow || (this._table && this._table.querySelector("thead > tr"));
+    if (!row) return;
+    const currentKey = this.sortByEl ? this.sortByEl.value : (this._clientSortKey || "");
+    const currentDir = this.sortDirEl ? this.sortDirEl.value : (this._clientSortDir || "asc");
+    row.querySelectorAll("th[data-sort-key]").forEach((th) => {
+      th.removeAttribute("data-sort-asc");
+      th.removeAttribute("data-sort-desc");
+      if (th.dataset.sortKey === currentKey) {
+        th.setAttribute(currentDir === "asc" ? "data-sort-asc" : "data-sort-desc", "");
+      }
+    });
+  }
+
+  // Wire header click-to-sort and drag-to-reorder. Call after DOM is ready.
+  bindHeaderEvents() {
+    const t = this._table;
+    if (!t) return;
+    const theadRow = t.querySelector("thead > tr");
+    if (!theadRow) return;
+
+    theadRow.querySelectorAll("th[data-col]").forEach((th) => {
+      // ── sort on click ──────────────────────────────────────────────────
+      if (th.classList.contains("th-sortable") && th.dataset.sortKey) {
+        th.addEventListener("click", () => {
+          if (th._tcmWasDragged) { th._tcmWasDragged = false; return; }
+          this._handleSort(th.dataset.sortKey);
+        });
+      }
+
+      // ── drag to reorder columns ────────────────────────────────────────
+      th.draggable = true;
+      th.classList.add("th-draggable");
+      th.addEventListener("dragstart", (e) => {
+        this._dragKey = th.dataset.col;
+        th.classList.add("th-dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      th.addEventListener("dragend", () => {
+        th.classList.remove("th-dragging");
+        theadRow.querySelectorAll("th").forEach((h) => h.classList.remove("th-drag-over"));
+      });
+      th.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        theadRow.querySelectorAll("th").forEach((h) => h.classList.remove("th-drag-over"));
+        if (this._dragKey !== th.dataset.col) th.classList.add("th-drag-over");
+      });
+      th.addEventListener("dragleave", () => th.classList.remove("th-drag-over"));
+      th.addEventListener("drop", (e) => {
+        e.preventDefault();
+        th.classList.remove("th-drag-over");
+        if (!this._dragKey || this._dragKey === th.dataset.col) return;
+        const dragTh = theadRow.querySelector(`th[data-col="${this._dragKey}"]`);
+        if (dragTh) {
+          dragTh._tcmWasDragged = true;
+          theadRow.insertBefore(dragTh, th);
+        }
+        // Derive new order from DOM
+        const newOrder = Array.from(theadRow.querySelectorAll("th[data-col]")).map((h) => h.dataset.col);
+        this.state.order = newOrder;
+        this._saveState();
+        // Reorder existing tbody rows
+        t.querySelectorAll("tbody > tr").forEach((tr) => {
+          const tdMap = {};
+          tr.querySelectorAll("[data-col]").forEach((td) => { tdMap[td.dataset.col] = td; });
+          newOrder.forEach((key) => { if (tdMap[key]) tr.appendChild(tdMap[key]); });
+        });
+      });
+    });
+  }
+
+  _handleSort(sortKey) {
+    if (this.onClientSort) {
+      const newDir =
+        this._clientSortKey === sortKey && this._clientSortDir === "asc" ? "desc" : "asc";
+      this._clientSortKey = sortKey;
+      this._clientSortDir = newDir;
+      this._updateSortIndicators();
+      this.onClientSort(sortKey, newDir);
+      return;
+    }
+    if (!this.sortByEl || !this.sortDirEl) return;
+    if (this.sortByEl.value === sortKey) {
+      this.sortDirEl.value = this.sortDirEl.value === "asc" ? "desc" : "asc";
+    } else {
+      this.sortByEl.value = sortKey;
+      this.sortDirEl.value = "asc";
+    }
+    this._updateSortIndicators();
+    if (this.applyEl) this.applyEl.click();
+    else if (this.onRedraw) this.onRedraw();
+  }
+
+  openPicker(anchorEl) {
+    const PANEL_ID = "tcm-picker-panel";
+    const existing = document.getElementById(PANEL_ID);
+    if (existing) {
+      if (existing.dataset.tcmTable === this.tableId) { existing.remove(); return; }
+      existing.remove();
+    }
+
+    const panel = document.createElement("div");
+    panel.id = PANEL_ID;
+    panel.dataset.tcmTable = this.tableId;
+    panel.className = "tcm-picker-panel";
+    panel.innerHTML = `
+      <div class="tcm-picker-header">
+        <strong>Columns</strong>
+        <button type="button" class="tcm-reset secondary-btn" style="font-size:0.75em;padding:0.2em 0.5em">Reset</button>
+      </div>
+      <ul class="tcm-picker-list">
+        ${this.state.order
+          .map((key) => {
+            const def = this.columns.find((c) => c.key === key);
+            if (!def) return "";
+            const checked = !this.state.hidden.includes(key) ? "checked" : "";
+            const disabled = def.alwaysVisible ? "disabled" : "";
+            return `
+              <li class="tcm-picker-item" data-key="${key}" draggable="true">
+                <span class="tcm-drag-handle" title="Drag to reorder">⠿</span>
+                <label><input type="checkbox" ${checked} ${disabled} data-key="${key}">${escapeHtml(def.label)}</label>
+              </li>`;
+          })
+          .join("")}
+      </ul>`;
+    document.body.appendChild(panel);
+
+    // Position below anchor
+    if (anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      const panelW = 220;
+      const left = Math.max(4, Math.min(rect.left, window.innerWidth - panelW - 4));
+      Object.assign(panel.style, { position: "fixed", top: `${rect.bottom + 4}px`, left: `${left}px`, minWidth: `${panelW}px` });
+    }
+
+    // Close on outside click
+    const onOutside = (e) => {
+      if (!panel.contains(e.target) && e.target !== anchorEl) {
+        panel.remove();
+        document.removeEventListener("click", onOutside, true);
+      }
+    };
+    setTimeout(() => document.addEventListener("click", onOutside, true), 0);
+
+    // Visibility toggles
+    panel.querySelectorAll("input[type='checkbox']").forEach((cb) => {
+      cb.addEventListener("change", () => this.setHidden(cb.dataset.key, !cb.checked));
+    });
+
+    // Reset
+    panel.querySelector(".tcm-reset").addEventListener("click", () => {
+      this.state = { order: this.columns.map((c) => c.key), hidden: this.columns.filter((c) => c.defaultHidden).map((c) => c.key) };
+      this._saveState();
+      this._applyVisibility();
+      this.applyToTable();
+      if (this.onRedraw) this.onRedraw();
+      panel.remove();
+    });
+
+    // Drag-to-reorder inside picker
+    let pickerDragKey = null;
+    const list = panel.querySelector(".tcm-picker-list");
+    panel.querySelectorAll(".tcm-picker-item").forEach((item) => {
+      item.addEventListener("dragstart", () => { pickerDragKey = item.dataset.key; item.classList.add("dragging"); });
+      item.addEventListener("dragend", () => { item.classList.remove("dragging"); list.querySelectorAll(".tcm-picker-item").forEach((i) => i.classList.remove("drag-over")); pickerDragKey = null; });
+      item.addEventListener("dragover", (e) => { e.preventDefault(); item.classList.add("drag-over"); });
+      item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
+      item.addEventListener("drop", (e) => {
+        e.preventDefault();
+        item.classList.remove("drag-over");
+        if (!pickerDragKey || pickerDragKey === item.dataset.key) return;
+        const dragEl = list.querySelector(`[data-key="${pickerDragKey}"]`);
+        if (dragEl) list.insertBefore(dragEl, item);
+        const newOrder = Array.from(list.querySelectorAll(".tcm-picker-item")).map((i) => i.dataset.key);
+        this.state.order = newOrder;
+        this._saveState();
+        this.applyToTable();
+        if (this.onRedraw) this.onRedraw();
+      });
+    });
+  }
+}
+
+/* ── Per-table TCM instances (initialised after DOM ready) ──────────────── */
+let tcmTransactions, tcmDuplicates, tcmHistory, tcmOllama, tcmExportEvents, tcmExports;
 
 function renderPageButtonsHtml(currentPage, totalPages, buttonClass) {
   if (totalPages <= 1) {
@@ -2145,12 +2420,12 @@ function renderHistoryRows(targetBody, jobs) {
       const message = job.error ? escapeHtml(job.error) : escapeHtml(job.message || "");
       return `
         <tr>
-          <td data-label="Job ID"><code>${escapeHtml(job.id)}</code></td>
-          <td data-label="Status">${renderStatusBadge(job.status)}</td>
-          <td data-label="Created">${escapeHtml(job.created_at || "")}</td>
-          <td data-label="Merged">${escapeHtml(String(stats.merged_rows ?? 0))}</td>
-          <td data-label="Duplicates">${escapeHtml(String(stats.duplicate_rows ?? 0))}</td>
-          <td data-label="Actions" class="actions-cell">
+          <td data-col="job_id" data-label="Job ID"><code>${escapeHtml(job.id)}</code></td>
+          <td data-col="status" data-label="Status">${renderStatusBadge(job.status)}</td>
+          <td data-col="created" data-label="Created">${escapeHtml(job.created_at || "")}</td>
+          <td data-col="merged" data-label="Merged">${escapeHtml(String(stats.merged_rows ?? 0))}</td>
+          <td data-col="duplicates" data-label="Duplicates">${escapeHtml(String(stats.duplicate_rows ?? 0))}</td>
+          <td data-col="actions" data-label="Actions" class="actions-cell">
             <div class="small-controls">
               <button type="button" class="open-job" data-job-id="${escapeHtml(job.id)}">${isActive ? "Opened" : "Open"}</button>
               <button type="button" class="delete-job" data-job-id="${escapeHtml(job.id)}">Delete</button>
@@ -2208,6 +2483,7 @@ async function loadJobHistory() {
   renderHistoryRows(historyBodyTab, jobs);
   refreshActiveJobControls();
   bindHistoryOpenHandlers();
+  if (tcmHistory) tcmHistory.applyToTable();
 }
 
 function renderOllamaEvents(events) {
@@ -2227,15 +2503,15 @@ function renderOllamaEvents(events) {
       }
       return `
         <tr data-event-id="${id}">
-          <td data-label="ID"><code>${escapeHtml(String(id))}</code></td>
-          <td data-label="Status">${renderStatusBadge(event.status)}</td>
-          <td data-label="Date">${escapeHtml(event.date || "")}</td>
-          <td data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
-          <td data-label="Category">${escapeHtml(event.category || "")}</td>
-          <td data-label="Description">${escapeHtml(event.description || "")}</td>
-          <td data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
-          <td data-label="Destination Account">${escapeHtml(event.destination_account || "")}</td>
-          <td data-label="Actions" class="actions-cell">
+          <td data-col="id" data-label="ID"><code>${escapeHtml(String(id))}</code></td>
+          <td data-col="status" data-label="Status">${renderStatusBadge(event.status)}</td>
+          <td data-col="date" data-label="Date">${escapeHtml(event.date || "")}</td>
+          <td data-col="amount" data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
+          <td data-col="category" data-label="Category">${escapeHtml(event.category || "")}</td>
+          <td data-col="description" data-label="Description">${escapeHtml(event.description || "")}</td>
+          <td data-col="source_account" data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
+          <td data-col="destination_account" data-label="Destination Account">${escapeHtml(event.destination_account || "")}</td>
+          <td data-col="actions" data-label="Actions" class="actions-cell">
             <div class="small-controls">
               <button type="button" class="ollama-event-open secondary-btn" data-event-id="${id}">Open</button>
               <button type="button" class="ollama-event-delete danger-btn" data-event-id="${id}" ${String(event.status || "") === "running" ? "disabled" : ""}>Delete</button>
@@ -2246,6 +2522,7 @@ function renderOllamaEvents(events) {
     })
     .join("");
 
+  if (tcmOllama) tcmOllama.applyToTable();
   ollamaEventsBody.querySelectorAll(".ollama-event-open").forEach((btn) => {
     btn.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -2404,16 +2681,16 @@ function renderExportEvents(events) {
       const selected = activeExportEventId && activeExportEventId === id ? "selected" : "";
       return `
         <tr class="${selected}" data-event-id="${id}">
-          <td data-label="ID"><code>${escapeHtml(String(id))}</code></td>
-          <td data-label="Status">${renderStatusBadge(event.status)}</td>
-          <td data-label="Date">${escapeHtml(event.date || "")}</td>
-          <td data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
-          <td data-label="Category">${escapeHtml(event.category || "")}</td>
-          <td data-label="Description">${escapeHtml(event.description || "")}</td>
-          <td data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
-          <td data-label="Destination Account">${escapeHtml(event.destination_account || "")}</td>
-          <td data-label="Batch">${escapeHtml(String(event.batch_number || 0))}</td>
-          <td data-label="Actions" class="actions-cell">
+          <td data-col="id" data-label="ID"><code>${escapeHtml(String(id))}</code></td>
+          <td data-col="status" data-label="Status">${renderStatusBadge(event.status)}</td>
+          <td data-col="date" data-label="Date">${escapeHtml(event.date || "")}</td>
+          <td data-col="amount" data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
+          <td data-col="category" data-label="Category">${escapeHtml(event.category || "")}</td>
+          <td data-col="description" data-label="Description">${escapeHtml(event.description || "")}</td>
+          <td data-col="source_account" data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
+          <td data-col="destination_account" data-label="Destination Account">${escapeHtml(event.destination_account || "")}</td>
+          <td data-col="batch" data-label="Batch">${escapeHtml(String(event.batch_number || 0))}</td>
+          <td data-col="actions" data-label="Actions" class="actions-cell">
             <div class="small-controls">
               <button type="button" class="export-event-open secondary-btn" data-event-id="${id}">Open</button>
               <button type="button" class="export-event-delete danger-btn" data-event-id="${id}" ${String(event.status || "") === "running" ? "disabled" : ""}>Delete</button>
@@ -2424,6 +2701,7 @@ function renderExportEvents(events) {
     })
     .join("");
 
+  if (tcmExportEvents) tcmExportEvents.applyToTable();
   exportEventsBody.querySelectorAll(".export-event-open").forEach((btn) => {
     btn.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -2535,6 +2813,7 @@ async function loadFireflyExportEvents(resetPage = false) {
 }
 
 function renderFireflyExportRows(items) {
+  _knownExports = items;
   if (!exportBody) {
     return;
   }
@@ -2556,14 +2835,14 @@ function renderFireflyExportRows(items) {
         (failedRows > 0 || status === "failed");
       return `
         <tr class="${selected}" data-export-id="${escapeHtml(exportId)}">
-          <td data-label="Export ID"><code>${escapeHtml(exportId)}</code></td>
-          <td data-label="Status">${escapeHtml(item.status || "")}</td>
-          <td data-label="Created">${escapeHtml(item.created_at || "")}</td>
-          <td data-label="Updated">${escapeHtml(item.updated_at || "")}</td>
-          <td data-label="Rows">${escapeHtml(String(stats.exported_rows ?? 0))}</td>
-          <td data-label="Batches">${escapeHtml(String(stats.batches ?? 0))}</td>
-          <td data-label="Message">${escapeHtml(message)}</td>
-          <td data-label="Actions" class="actions-cell">
+          <td data-col="export_id" data-label="Export ID"><code>${escapeHtml(exportId)}</code></td>
+          <td data-col="status" data-label="Status">${renderStatusBadge(item.status)}</td>
+          <td data-col="created" data-label="Created">${escapeHtml(item.created_at || "")}</td>
+          <td data-col="updated" data-label="Updated">${escapeHtml(item.updated_at || "")}</td>
+          <td data-col="rows" data-label="Rows">${escapeHtml(String(stats.exported_rows ?? 0))}</td>
+          <td data-col="batches" data-label="Batches">${escapeHtml(String(stats.batches ?? 0))}</td>
+          <td data-col="message" data-label="Message">${escapeHtml(message)}</td>
+          <td data-col="actions" data-label="Actions" class="actions-cell">
             <div class="small-controls">
               <button type="button" class="open-export" data-export-id="${escapeHtml(exportId)}">${selected ? "Opened" : "Open"}</button>
               <button type="button" class="retry-failed-export secondary-btn" data-export-id="${escapeHtml(exportId)}" ${canRetry ? "" : "disabled"}>Retry Failed</button>
@@ -2575,6 +2854,7 @@ function renderFireflyExportRows(items) {
     })
     .join("");
 
+  if (tcmExports) tcmExports.applyToTable();
   exportBody.querySelectorAll(".open-export").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const exportId = String(btn.dataset.exportId || "");
@@ -3759,6 +4039,193 @@ async function restorePreviousSession() {
     await loadOllamaEvents();
   }
 }
+
+/* ── Initialise TableColumnManagers ────────────────────────────────────── */
+
+// ── Transactions ──
+tcmTransactions = new TableColumnManager({
+  tableId: "transactions-table",
+  columns: [
+    { key: "select",              label: "Select",              alwaysVisible: true },
+    { key: "id",                  label: "ID",                  sortKey: "id" },
+    { key: "decision",            label: "Decision",            sortKey: "decision" },
+    { key: "date",                label: "Date",                sortKey: "date" },
+    { key: "amount",              label: "Amount",              sortKey: "amount" },
+    { key: "category",            label: "Category",            sortKey: "category" },
+    { key: "description",         label: "Description",         sortKey: "description" },
+    { key: "source_account",      label: "Source Account",      sortKey: "source_account" },
+    { key: "destination_account", label: "Destination Account", sortKey: "destination_account", defaultHidden: true },
+    { key: "dropped_pairing",     label: "Dropped Pairing" },
+    { key: "details",             label: "Details",             alwaysVisible: true },
+  ],
+  sortByEl: document.getElementById("tx-sort-by"),
+  sortDirEl: document.getElementById("tx-sort-dir"),
+  applyEl:   document.getElementById("apply-tx-filters"),
+});
+tcmTransactions.bindHeaderEvents();
+const txColumnsBtnEl = document.getElementById("tx-columns-btn");
+if (txColumnsBtnEl) txColumnsBtnEl.addEventListener("click", () => tcmTransactions.openPicker(txColumnsBtnEl));
+
+// ── Duplicates ──
+tcmDuplicates = new TableColumnManager({
+  tableId: "duplicates-table",
+  columns: [
+    { key: "select",              label: "Select",              alwaysVisible: true },
+    { key: "dropped_id",          label: "Dropped ID" },
+    { key: "reason",              label: "Reason",              sortKey: "reason" },
+    { key: "reasoning",           label: "Reasoning",           sortKey: "reasoning",    defaultHidden: true },
+    { key: "dropped_date",        label: "Dropped Date",        sortKey: "date" },
+    { key: "dropped_amount",      label: "Dropped Amount",      sortKey: "amount" },
+    { key: "dropped_description", label: "Dropped Description", sortKey: "description" },
+    { key: "dropped_source",      label: "Dropped Source",      sortKey: "source_file" },
+    { key: "kept_id",             label: "Kept ID",             defaultHidden: true },
+    { key: "kept_date",           label: "Kept Date",           sortKey: "kept_date" },
+    { key: "kept_amount",         label: "Kept Amount",         sortKey: "kept_amount" },
+    { key: "kept_description",    label: "Kept Description" },
+    { key: "details",             label: "Details",             alwaysVisible: true },
+  ],
+  sortByEl: document.getElementById("dup-sort-by"),
+  sortDirEl: document.getElementById("dup-sort-dir"),
+  applyEl:   document.getElementById("apply-dup-filters"),
+});
+tcmDuplicates.bindHeaderEvents();
+const dupColumnsBtnEl = document.getElementById("dup-columns-btn");
+if (dupColumnsBtnEl) dupColumnsBtnEl.addEventListener("click", () => tcmDuplicates.openPicker(dupColumnsBtnEl));
+
+// ── Ollama events ──
+tcmOllama = new TableColumnManager({
+  tableId: "ollama-events-table",
+  columns: [
+    { key: "id",                  label: "ID",                  sortKey: "id" },
+    { key: "status",              label: "Status",              sortKey: "status" },
+    { key: "date",                label: "Date",                sortKey: "date" },
+    { key: "amount",              label: "Amount",              sortKey: "amount" },
+    { key: "category",            label: "Category",            sortKey: "category" },
+    { key: "description",         label: "Description",         sortKey: "description" },
+    { key: "source_account",      label: "Source Account",      sortKey: "source_account",      defaultHidden: true },
+    { key: "destination_account", label: "Destination Account", sortKey: "destination_account", defaultHidden: true },
+    { key: "actions",             label: "Actions",             alwaysVisible: true },
+  ],
+  sortByEl: document.getElementById("ollama-sort-by"),
+  sortDirEl: document.getElementById("ollama-sort-dir"),
+  onRedraw:  () => loadOllamaEvents({ resetPage: false }).catch(() => {}),
+});
+tcmOllama.bindHeaderEvents();
+const ollamaColumnsBtnEl = document.getElementById("ollama-columns-btn");
+if (ollamaColumnsBtnEl) ollamaColumnsBtnEl.addEventListener("click", () => tcmOllama.openPicker(ollamaColumnsBtnEl));
+
+// ── Export events ──
+tcmExportEvents = new TableColumnManager({
+  tableId: "export-events-table",
+  columns: [
+    { key: "id",                  label: "ID",                  sortKey: "id" },
+    { key: "status",              label: "Status",              sortKey: "status" },
+    { key: "date",                label: "Date",                sortKey: "date" },
+    { key: "amount",              label: "Amount",              sortKey: "amount" },
+    { key: "category",            label: "Category",            sortKey: "category" },
+    { key: "description",         label: "Description",         sortKey: "description" },
+    { key: "source_account",      label: "Source Account",      sortKey: "source_account",      defaultHidden: true },
+    { key: "destination_account", label: "Destination Account", sortKey: "destination_account", defaultHidden: true },
+    { key: "batch",               label: "Batch",               sortKey: "batch_number" },
+    { key: "actions",             label: "Actions",             alwaysVisible: true },
+  ],
+  sortByEl: document.getElementById("export-events-sort-by"),
+  sortDirEl: document.getElementById("export-events-sort-dir"),
+  onRedraw:  () => loadFireflyExportEvents(false).catch(() => {}),
+});
+tcmExportEvents.bindHeaderEvents();
+const exportEventsColumnsBtnEl = document.getElementById("export-events-columns-btn");
+if (exportEventsColumnsBtnEl) exportEventsColumnsBtnEl.addEventListener("click", () => tcmExportEvents.openPicker(exportEventsColumnsBtnEl));
+
+// ── History (client-side sort) ──
+let _historySortKey = "created";
+let _historySortDir = "desc";
+
+function _sortJobs(jobs, key, dir) {
+  return [...jobs].sort((a, b) => {
+    let av, bv;
+    if (key === "id") { av = String(a.id || ""); bv = String(b.id || ""); }
+    else if (key === "status") { av = String(a.status || ""); bv = String(b.status || ""); }
+    else if (key === "created") { av = String(a.created_at || ""); bv = String(b.created_at || ""); }
+    else if (key === "merged") { av = Number((a.stats || {}).merged_rows ?? 0); bv = Number((b.stats || {}).merged_rows ?? 0); }
+    else if (key === "duplicates") { av = Number((a.stats || {}).duplicate_rows ?? 0); bv = Number((b.stats || {}).duplicate_rows ?? 0); }
+    else { av = String(a.id || ""); bv = String(b.id || ""); }
+    const cmp = typeof av === "number" ? av - bv : av.localeCompare(bv);
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
+tcmHistory = new TableColumnManager({
+  tableId: "history-table-tab",
+  columns: [
+    { key: "job_id",    label: "Job ID",    sortKey: "id" },
+    { key: "status",    label: "Status",    sortKey: "status" },
+    { key: "created",   label: "Created",   sortKey: "created" },
+    { key: "merged",    label: "Merged",    sortKey: "merged" },
+    { key: "duplicates",label: "Duplicates",sortKey: "duplicates" },
+    { key: "actions",   label: "Actions",   alwaysVisible: true },
+  ],
+  onClientSort: (sortKey, dir) => {
+    _historySortKey = sortKey;
+    _historySortDir = dir;
+    const sorted = _sortJobs(knownJobs, sortKey, dir);
+    renderHistoryRows(historyBodyTab, sorted);
+    bindHistoryOpenHandlers();
+    tcmHistory.applyToTable();
+  },
+});
+tcmHistory.bindHeaderEvents();
+tcmHistory._clientSortKey = _historySortKey;
+tcmHistory._clientSortDir = _historySortDir;
+const historyColumnsBtnEl = document.getElementById("history-columns-btn");
+if (historyColumnsBtnEl) historyColumnsBtnEl.addEventListener("click", () => tcmHistory.openPicker(historyColumnsBtnEl));
+
+// ── Exports (client-side sort) ──
+let _exportsSortKey = "created";
+let _exportsSortDir = "desc";
+let _knownExports = [];
+
+function _sortExports(items, key, dir) {
+  return [...items].sort((a, b) => {
+    let av, bv;
+    const sa = a.stats || {}, sb = b.stats || {};
+    if (key === "id") { av = String(a.id || ""); bv = String(b.id || ""); }
+    else if (key === "status") { av = String(a.status || ""); bv = String(b.status || ""); }
+    else if (key === "created") { av = String(a.created_at || ""); bv = String(b.created_at || ""); }
+    else if (key === "updated") { av = String(a.updated_at || ""); bv = String(b.updated_at || ""); }
+    else if (key === "rows") { av = Number(sa.exported_rows ?? 0); bv = Number(sb.exported_rows ?? 0); }
+    else if (key === "batches") { av = Number(sa.batches ?? 0); bv = Number(sb.batches ?? 0); }
+    else { av = String(a.id || ""); bv = String(b.id || ""); }
+    const cmp = typeof av === "number" ? av - bv : av.localeCompare(bv);
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
+tcmExports = new TableColumnManager({
+  tableId: "exports-table",
+  columns: [
+    { key: "export_id", label: "Export ID", sortKey: "id" },
+    { key: "status",    label: "Status",    sortKey: "status" },
+    { key: "created",   label: "Created",   sortKey: "created" },
+    { key: "updated",   label: "Updated",   sortKey: "updated" },
+    { key: "rows",      label: "Rows",      sortKey: "rows" },
+    { key: "batches",   label: "Batches",   sortKey: "batches" },
+    { key: "message",   label: "Message" },
+    { key: "actions",   label: "Actions",   alwaysVisible: true },
+  ],
+  onClientSort: (sortKey, dir) => {
+    _exportsSortKey = sortKey;
+    _exportsSortDir = dir;
+    const sorted = _sortExports(_knownExports, sortKey, dir);
+    renderFireflyExportRows(sorted);
+    tcmExports.applyToTable();
+  },
+});
+tcmExports.bindHeaderEvents();
+tcmExports._clientSortKey = _exportsSortKey;
+tcmExports._clientSortDir = _exportsSortDir;
+const exportsColumnsBtnEl = document.getElementById("exports-columns-btn");
+if (exportsColumnsBtnEl) exportsColumnsBtnEl.addEventListener("click", () => tcmExports.openPicker(exportsColumnsBtnEl));
 
 updateSelectedFilesHint();
 restorePreviousSession().catch((error) => {
