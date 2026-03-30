@@ -618,7 +618,7 @@ function renderJob(job) {
   refreshActiveJobControls();
 
   jobIdEl.textContent = job.id || "";
-  jobStatusEl.textContent = job.status || "";
+  jobStatusEl.innerHTML = renderStatusBadge(job.status);
   activeJobStatus = String(job.status || "");
   jobCreatedEl.textContent = job.created_at || "-";
   jobUpdatedEl.textContent = job.updated_at || "-";
@@ -1143,7 +1143,7 @@ function startPolling(jobId) {
     } catch (error) {
       stopPolling();
       submitButton.disabled = false;
-      alert(error.message);
+      showToast(error.message, "error");
     }
   }, 2000);
 }
@@ -1262,7 +1262,7 @@ function renderTransactionRow(row) {
       <td data-label="ID"><code>${escapeHtml(rowId)}</code></td>
       <td data-label="Decision"><span class="decision-badge ${decision}">${escapeHtml(decisionLabel)}</span></td>
       <td data-label="Date">${escapeHtml(row.date || "")}</td>
-      <td data-label="Amount" class="num">${escapeHtml(row.amount || "")}</td>
+      <td data-label="Amount" class="num${amountClass(row.amount)}">${escapeHtml(row.amount || "")}</td>
       <td data-label="Category">${categoryCell}</td>
       <td data-label="Description">${escapeHtml(row.description || "")}</td>
       <td data-label="Source Account">${escapeHtml(row.source_account || "")}</td>
@@ -1376,7 +1376,7 @@ function wireTransactionDetailButtons() {
       try {
         await openTransactionDetail(rowSource, rowLocalIndex, rowId);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -1390,7 +1390,7 @@ function wireTransactionDetailButtons() {
       try {
         await openTransactionDetail(rowSource, rowLocalIndex, rowId);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -1445,7 +1445,7 @@ function updateTxPagination() {
       try {
         await loadTransactions(false);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -1587,7 +1587,7 @@ function renderDuplicateReviewRows(rows) {
       try {
         await openTransactionDetail(rowSource, rowLocalIndex, rowId);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -1633,7 +1633,7 @@ function updateDupPagination() {
       try {
         await loadDuplicateReview(false);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -1750,7 +1750,7 @@ async function selectOllamaEvent(eventId) {
     ollamaEventsById.set(activeOllamaEventId, detail);
     openDetailModal(`Ollama Event ${activeOllamaEventId}`, renderOllamaDetail(detail));
   } catch (error) {
-    alert(String(error.message || error));
+    showToast(String(error.message || error), "error");
   }
 }
 
@@ -1758,6 +1758,72 @@ function escapeHtml(raw) {
   const div = document.createElement("div");
   div.textContent = String(raw ?? "");
   return div.innerHTML;
+}
+
+const _toastIcons = { success: "✔", error: "✖", warning: "⚠", info: "ℹ" };
+
+function showToast(message, type = "info", duration = 5000) {
+  const container = document.getElementById("toast-container");
+  if (!container) {
+    // eslint-disable-next-line no-console
+    console.warn("Toast:", type, message);
+    return;
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${_toastIcons[type] || _toastIcons.info}</span>
+    <span class="toast-message">${escapeHtml(message)}</span>
+    <button type="button" class="toast-close" aria-label="Dismiss">✕</button>
+  `;
+  const dismiss = () => {
+    toast.classList.add("toast-hiding");
+    toast.addEventListener("animationend", () => toast.remove(), { once: true });
+  };
+  toast.querySelector(".toast-close").addEventListener("click", dismiss);
+  container.appendChild(toast);
+  if (duration > 0) {
+    setTimeout(dismiss, duration);
+  }
+}
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("confirm-modal");
+    const msgEl = document.getElementById("confirm-modal-message");
+    const okBtn = document.getElementById("confirm-modal-ok");
+    const cancelBtn = document.getElementById("confirm-modal-cancel");
+    if (!modal || !msgEl || !okBtn || !cancelBtn) {
+      resolve(window.confirm(message));
+      return;
+    }
+    msgEl.textContent = message;
+    modal.hidden = false;
+    const finish = (result) => {
+      modal.hidden = true;
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      modal.querySelector(".confirm-modal-backdrop").removeEventListener("click", onCancel);
+      resolve(result);
+    };
+    const onOk = () => finish(true);
+    const onCancel = () => finish(false);
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    modal.querySelector(".confirm-modal-backdrop").addEventListener("click", onCancel);
+  });
+}
+
+function renderStatusBadge(status) {
+  const s = String(status || "unknown").toLowerCase();
+  const known = ["queued", "running", "completed", "failed"];
+  const cls = known.includes(s) ? s : "unknown";
+  return `<span class="status-badge ${cls}">${escapeHtml(s)}</span>`;
+}
+
+function amountClass(amount) {
+  const num = parseFloat(String(amount || "").replace(",", "."));
+  return !isNaN(num) && num < 0 ? " amount-neg" : "";
 }
 
 function renderPageButtonsHtml(currentPage, totalPages, buttonClass) {
@@ -2010,13 +2076,13 @@ async function ensureDuplicateReviewReadyForProcessing() {
 
 async function runCategorization(mode, allRows = false) {
   if (!activeJobId) {
-    alert("Run a merge job first.");
+    showToast("Run a merge job first.", "warning");
     return;
   }
   let selection = null;
   if (!allRows) {
     if (!selectedRows.size) {
-      alert("Select at least one merged transaction.");
+      showToast("Select at least one merged transaction.", "warning");
       return;
     }
     selection = Array.from(selectedRows).sort((a, b) => a - b);
@@ -2050,16 +2116,16 @@ async function runCategorization(mode, allRows = false) {
         result.auto_export
           ? (result.export_id ? ` Auto export job: ${result.export_id}.` : " Auto export is enabled; categorized batches will be queued to export.")
           : "";
-      alert(`Ollama categorization queued. Queued: ${result.queued ?? 0}, skipped: ${result.skipped ?? 0}.${exportInfo}`);
+      showToast(`Ollama categorization queued. Queued: ${result.queued ?? 0}, skipped: ${result.skipped ?? 0}.${exportInfo}`, "success");
     } else {
-      alert(`Categorization done. Updated ${result.updated}, skipped ${result.skipped}.`);
+      showToast(`Categorization done. Updated ${result.updated}, skipped ${result.skipped}.`, "success");
     }
     selectedRows.clear();
     await loadTransactions(true);
     await loadOllamaEvents({ resetPage: true });
     await loadQueueSummary().catch(() => {});
   } catch (error) {
-    alert(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2080,7 +2146,7 @@ function renderHistoryRows(targetBody, jobs) {
       return `
         <tr>
           <td data-label="Job ID"><code>${escapeHtml(job.id)}</code></td>
-          <td data-label="Status">${escapeHtml(job.status || "")}</td>
+          <td data-label="Status">${renderStatusBadge(job.status)}</td>
           <td data-label="Created">${escapeHtml(job.created_at || "")}</td>
           <td data-label="Merged">${escapeHtml(String(stats.merged_rows ?? 0))}</td>
           <td data-label="Duplicates">${escapeHtml(String(stats.duplicate_rows ?? 0))}</td>
@@ -2117,7 +2183,7 @@ function bindHistoryOpenHandlers() {
         if (!jobId) {
           return;
         }
-        const approved = window.confirm(`Delete job ${jobId}? This removes artifacts, logs and queue records.`);
+        const approved = await showConfirm(`Delete job ${jobId}? This removes artifacts, logs and queue records.`);
         if (!approved) {
           return;
         }
@@ -2128,7 +2194,7 @@ function bindHistoryOpenHandlers() {
           }
           await loadJobHistory();
         } catch (error) {
-          alert(error.message);
+          showToast(error.message, "error");
         }
       });
     });
@@ -2162,9 +2228,9 @@ function renderOllamaEvents(events) {
       return `
         <tr data-event-id="${id}">
           <td data-label="ID"><code>${escapeHtml(String(id))}</code></td>
-          <td data-label="Status">${escapeHtml(event.status || "")}</td>
+          <td data-label="Status">${renderStatusBadge(event.status)}</td>
           <td data-label="Date">${escapeHtml(event.date || "")}</td>
-          <td data-label="Amount" class="num">${escapeHtml(event.amount || "")}</td>
+          <td data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
           <td data-label="Category">${escapeHtml(event.category || "")}</td>
           <td data-label="Description">${escapeHtml(event.description || "")}</td>
           <td data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
@@ -2192,14 +2258,14 @@ function renderOllamaEvents(events) {
       event.stopPropagation();
       const eventId = Number(btn.dataset.eventId || 0);
       if (!eventId) return;
-      const approved = window.confirm(`Delete Ollama queue item ${eventId}?`);
+      const approved = await showConfirm(`Delete Ollama queue item ${eventId}?`);
       if (!approved) return;
       try {
         await deleteOllamaQueueItem(eventId);
         await loadOllamaEvents({ resetPage: false });
         await loadQueueSummary().catch(() => {});
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -2283,7 +2349,7 @@ function updateOllamaPagination() {
       try {
         await loadOllamaEvents({ resetPage: false });
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -2315,7 +2381,7 @@ async function selectExportEvent(eventId) {
     exportEventsById.set(activeExportEventId, detail);
     openDetailModal(`Export Event ${activeExportEventId}`, renderObjectDetails(detail));
   } catch (error) {
-    alert(String(error.message || error));
+    showToast(String(error.message || error), "error");
   }
 }
 
@@ -2339,9 +2405,9 @@ function renderExportEvents(events) {
       return `
         <tr class="${selected}" data-event-id="${id}">
           <td data-label="ID"><code>${escapeHtml(String(id))}</code></td>
-          <td data-label="Status">${escapeHtml(event.status || "")}</td>
+          <td data-label="Status">${renderStatusBadge(event.status)}</td>
           <td data-label="Date">${escapeHtml(event.date || "")}</td>
-          <td data-label="Amount" class="num">${escapeHtml(event.amount || "")}</td>
+          <td data-label="Amount" class="num${amountClass(event.amount)}">${escapeHtml(event.amount || "")}</td>
           <td data-label="Category">${escapeHtml(event.category || "")}</td>
           <td data-label="Description">${escapeHtml(event.description || "")}</td>
           <td data-label="Source Account">${escapeHtml(event.source_account || "")}</td>
@@ -2370,14 +2436,14 @@ function renderExportEvents(events) {
       event.stopPropagation();
       const eventId = Number(btn.dataset.eventId || 0);
       if (!eventId || !activeJobId) return;
-      const approved = window.confirm(`Delete export queue item ${eventId}?`);
+      const approved = await showConfirm(`Delete export queue item ${eventId}?`);
       if (!approved) return;
       try {
         await deleteFireflyExportEvent(activeJobId, eventId);
         await loadFireflyExportEvents(false);
         await loadQueueSummary().catch(() => {});
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -2426,7 +2492,7 @@ function updateExportEventsPagination() {
       try {
         await loadFireflyExportEvents(false);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -2516,7 +2582,7 @@ function renderFireflyExportRows(items) {
       try {
         await openFireflyExport(exportId);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -2535,7 +2601,7 @@ function renderFireflyExportRows(items) {
           await openFireflyExport(newExportId);
         }
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       } finally {
         btn.disabled = false;
       }
@@ -2547,7 +2613,7 @@ function renderFireflyExportRows(items) {
       if (!targetExportId || !activeJobId) {
         return;
       }
-      const approved = window.confirm(`Delete export queue ${targetExportId}?`);
+      const approved = await showConfirm(`Delete export queue ${targetExportId}?`);
       if (!approved) {
         return;
       }
@@ -2561,7 +2627,7 @@ function renderFireflyExportRows(items) {
         await loadFireflyExports(true);
         await loadQueueSummary().catch(() => {});
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       } finally {
         btn.disabled = false;
       }
@@ -2783,7 +2849,7 @@ form.addEventListener("submit", async (event) => {
 
   const formData = new FormData();
   if (!filesInput || !filesInput.files.length) {
-    alert("Select at least one bank statement file (CSV or MT940).");
+    showToast("Select at least one bank statement file (CSV or MT940).", "warning");
     submitButton.disabled = false;
     return;
   }
@@ -2829,7 +2895,7 @@ form.addEventListener("submit", async (event) => {
       await loadFireflyExports(true);
     }
   } catch (error) {
-    alert(error.message);
+    showToast(error.message, "error");
     submitButton.disabled = false;
   }
 });
@@ -2839,7 +2905,7 @@ if (importMergedBtn) {
     const mergedFile = mergedImportFileInput && mergedImportFileInput.files ? mergedImportFileInput.files[0] : null;
     const duplicatesFile = duplicatesImportFileInput && duplicatesImportFileInput.files ? duplicatesImportFileInput.files[0] : null;
     if (!mergedFile) {
-      alert("Select a merged/categorized CSV to import.");
+      showToast("Select a merged/categorized CSV to import.", "warning");
       return;
     }
     importMergedBtn.disabled = true;
@@ -2852,9 +2918,9 @@ if (importMergedBtn) {
       if (mergedImportFileInput) mergedImportFileInput.value = "";
       if (duplicatesImportFileInput) duplicatesImportFileInput.value = "";
       await openExistingJob(importedJobId, "job-panel");
-      alert(`Imported as job ${importedJobId}.`);
+      showToast(`Imported as job ${importedJobId}.`, "success");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       importMergedBtn.disabled = false;
     }
@@ -2907,7 +2973,7 @@ applyTxFiltersBtn.addEventListener("click", async () => {
   try {
     await loadTransactions(true);
   } catch (error) {
-    alert(error.message);
+    showToast(error.message, "error");
   }
 });
 
@@ -2927,7 +2993,7 @@ if (txPageSizeInput) {
     try {
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -2939,7 +3005,7 @@ if (txPageFirstBtn) {
     try {
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -2951,7 +3017,7 @@ if (txPagePrevBtn) {
     try {
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -2964,7 +3030,7 @@ if (txPageNextBtn) {
     try {
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -2977,7 +3043,7 @@ if (txPageLastBtn) {
     try {
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3009,7 +3075,7 @@ if (applyDupFiltersBtn) {
     try {
       await loadDuplicateReview(true);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3020,7 +3086,7 @@ if (refreshDupReviewBtn) {
       await loadDuplicateReview(false);
       await loadTransactions(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3052,14 +3118,14 @@ if (clearDupSelectionBtn) {
 if (restoreDupSelectedBtn) {
   restoreDupSelectedBtn.addEventListener("click", async () => {
     if (!activeJobId) {
-      alert("Select a completed merge job first.");
+      showToast("Select a completed merge job first.", "warning");
       return;
     }
     if (!selectedDuplicateRows.size) {
-      alert("Select at least one suspected duplicate row to restore.");
+      showToast("Select at least one suspected duplicate row to restore.", "warning");
       return;
     }
-    const approved = window.confirm(
+    const approved = await showConfirm(
       `Restore ${selectedDuplicateRows.size} selected duplicate row(s) back to merged transactions?`
     );
     if (!approved) return;
@@ -3076,7 +3142,7 @@ if (restoreDupSelectedBtn) {
       renderJob(updatedJob);
       await loadJobHistory();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       restoreDupSelectedBtn.disabled = false;
     }
@@ -3086,7 +3152,7 @@ if (restoreDupSelectedBtn) {
 if (confirmDupReviewBtn) {
   confirmDupReviewBtn.addEventListener("click", async () => {
     if (!activeJobId) {
-      alert("Select a completed merge job first.");
+      showToast("Select a completed merge job first.", "warning");
       return;
     }
     confirmDupReviewBtn.disabled = true;
@@ -3097,9 +3163,9 @@ if (confirmDupReviewBtn) {
       const updatedJob = await fetchJob(activeJobId);
       renderJob(updatedJob);
       await loadJobHistory();
-      alert("Duplicate review confirmed. Categorization and export are now unlocked.");
+      showToast("Duplicate review confirmed. Categorization and export are now unlocked.", "success");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       confirmDupReviewBtn.disabled = false;
     }
@@ -3124,7 +3190,7 @@ if (dupPageSizeInput) {
     try {
       await loadDuplicateReview(true);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3141,7 +3207,7 @@ if (dupPageSizeInput) {
       try {
         await loadDuplicateReview(true);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -3153,7 +3219,7 @@ if (dupPageFirstBtn) {
     try {
       await loadDuplicateReview(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3165,7 +3231,7 @@ if (dupPagePrevBtn) {
     try {
       await loadDuplicateReview(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3178,7 +3244,7 @@ if (dupPageNextBtn) {
     try {
       await loadDuplicateReview(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3191,7 +3257,7 @@ if (dupPageLastBtn) {
     try {
       await loadDuplicateReview(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3205,7 +3271,7 @@ if (categorizeAllOllamaBtn) {
 if (downloadCategorizedCsvBtn) {
   downloadCategorizedCsvBtn.addEventListener("click", () => {
     if (!activeJobId) {
-      alert("Select a merge job first.");
+      showToast("Select a merge job first.", "warning");
       return;
     }
     downloadCategorizedCsv(activeJobId);
@@ -3217,7 +3283,7 @@ if (refreshHistoryTabBtn) {
     try {
       await loadJobHistory();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3233,7 +3299,7 @@ if (activeJobSelect) {
       const targetSubTab = getActiveSubTab() === "merge-form-panel" ? "job-panel" : getActiveSubTab();
       await openExistingJob(selected, targetSubTab);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3247,7 +3313,7 @@ if (openLatestJobBtn) {
     try {
       await openExistingJob(String(latest.id), "job-panel");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3274,7 +3340,7 @@ emptyOpenLatestButtons.forEach((btn) => {
     try {
       await openExistingJob(String(latest.id), "job-panel");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 });
@@ -3290,7 +3356,7 @@ if (refreshOllamaEventsBtn) {
     try {
       await loadOllamaEvents({ resetPage: true });
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3299,7 +3365,7 @@ if (stopOllamaQueueBtn) {
   stopOllamaQueueBtn.addEventListener("click", async () => {
     const jobFilter = String((ollamaJobFilterInput && ollamaJobFilterInput.value) || "").trim() || activeJobId;
     if (!jobFilter) {
-      alert("Enter a job id filter or select an active job.");
+      showToast("Enter a job id filter or select an active job.", "warning");
       return;
     }
     stopOllamaQueueBtn.disabled = true;
@@ -3308,7 +3374,7 @@ if (stopOllamaQueueBtn) {
       await loadOllamaEvents({ resetPage: false });
       await loadQueueSummary().catch(() => {});
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       stopOllamaQueueBtn.disabled = false;
     }
@@ -3320,10 +3386,10 @@ if (deleteOllamaQueueBtn) {
     const jobFilter = String((ollamaJobFilterInput && ollamaJobFilterInput.value) || "").trim() || activeJobId;
     const statusGroup = String((ollamaStatusGroupInput && ollamaStatusGroupInput.value) || "all");
     if (!jobFilter) {
-      alert("Enter a job id filter or select an active job.");
+      showToast("Enter a job id filter or select an active job.", "warning");
       return;
     }
-    const approved = window.confirm(`Delete Ollama queue items (${statusGroup}) for job ${jobFilter}?`);
+    const approved = await showConfirm(`Delete Ollama queue items (${statusGroup}) for job ${jobFilter}?`);
     if (!approved) return;
     deleteOllamaQueueBtn.disabled = true;
     try {
@@ -3331,7 +3397,7 @@ if (deleteOllamaQueueBtn) {
       await loadOllamaEvents({ resetPage: true });
       await loadQueueSummary().catch(() => {});
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       deleteOllamaQueueBtn.disabled = false;
     }
@@ -3345,7 +3411,7 @@ if (ollamaPageFirstBtn) {
     try {
       await loadOllamaEvents({ resetPage: false });
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3357,7 +3423,7 @@ if (ollamaPagePrevBtn) {
     try {
       await loadOllamaEvents({ resetPage: false });
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3370,7 +3436,7 @@ if (ollamaPageNextBtn) {
     try {
       await loadOllamaEvents({ resetPage: false });
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3383,7 +3449,7 @@ if (ollamaPageLastBtn) {
     try {
       await loadOllamaEvents({ resetPage: false });
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3391,7 +3457,7 @@ if (ollamaPageLastBtn) {
 if (startFireflyExportBtn) {
   startFireflyExportBtn.addEventListener("click", async () => {
     if (!activeJobId) {
-      alert("Select a completed merge job first.");
+      showToast("Select a completed merge job first.", "warning");
       return;
     }
     startFireflyExportBtn.disabled = true;
@@ -3414,7 +3480,7 @@ if (startFireflyExportBtn) {
       }
       await loadQueueSummary().catch(() => {});
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       startFireflyExportBtn.disabled = false;
     }
@@ -3424,7 +3490,7 @@ if (startFireflyExportBtn) {
 if (stopFireflyExportBtn) {
   stopFireflyExportBtn.addEventListener("click", async () => {
     if (!activeJobId || !activeExportId) {
-      alert("Select an export first.");
+      showToast("Select an export first.", "warning");
       return;
     }
     stopFireflyExportBtn.disabled = true;
@@ -3434,7 +3500,7 @@ if (stopFireflyExportBtn) {
       await loadFireflyExportEvents(false);
       await loadQueueSummary().catch(() => {});
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       stopFireflyExportBtn.disabled = false;
     }
@@ -3444,7 +3510,7 @@ if (stopFireflyExportBtn) {
 if (deleteFireflyExportBtn) {
   deleteFireflyExportBtn.addEventListener("click", async () => {
     if (!activeJobId) {
-      alert("Select a merge job first.");
+      showToast("Select a merge job first.", "warning");
       return;
     }
     const statusGroup = String((exportEventsStatusGroupInput && exportEventsStatusGroupInput.value) || "all");
@@ -3454,7 +3520,7 @@ if (deleteFireflyExportBtn) {
         : statusGroup === "completed"
           ? "completed/failed"
           : "all";
-    const approved = window.confirm(`Delete ${label} export queue(s) for job ${activeJobId}?`);
+    const approved = await showConfirm(`Delete ${label} export queue(s) for job ${activeJobId}?`);
     if (!approved) return;
     deleteFireflyExportBtn.disabled = true;
     try {
@@ -3465,9 +3531,9 @@ if (deleteFireflyExportBtn) {
       await loadQueueSummary().catch(() => {});
       const deletedExports = Number(result.deleted_exports || 0);
       const deletedEvents = Number(result.deleted_events || 0);
-      alert(`Deleted exports: ${deletedExports}. Deleted queue items: ${deletedEvents}.`);
+      showToast(`Deleted exports: ${deletedExports}. Deleted queue items: ${deletedEvents}.`, "success");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     } finally {
       deleteFireflyExportBtn.disabled = false;
     }
@@ -3479,7 +3545,7 @@ if (refreshExportStatusBtn) {
     try {
       await loadFireflyExports(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3489,7 +3555,7 @@ if (refreshExportEventsBtn) {
     try {
       await loadFireflyExportEvents(true);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3503,7 +3569,7 @@ if (refreshExportEventsBtn) {
       try {
         await loadFireflyExportEvents(true);
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -3515,7 +3581,7 @@ if (exportEventsPageFirstBtn) {
     try {
       await loadFireflyExportEvents(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3527,7 +3593,7 @@ if (exportEventsPagePrevBtn) {
     try {
       await loadFireflyExportEvents(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3540,7 +3606,7 @@ if (exportEventsPageNextBtn) {
     try {
       await loadFireflyExportEvents(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3553,7 +3619,7 @@ if (exportEventsPageLastBtn) {
     try {
       await loadFireflyExportEvents(false);
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 }
@@ -3591,7 +3657,7 @@ if (ollamaJobFilterInput) {
       try {
         await loadOllamaEvents({ resetPage: true });
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -3609,7 +3675,7 @@ txBody.addEventListener("change", async (event) => {
   try {
     await updateTransactionCategory(activeJobId, rowIndex, value);
   } catch (error) {
-    alert(error.message);
+    showToast(error.message, "error");
   }
 });
 

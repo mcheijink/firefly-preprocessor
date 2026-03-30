@@ -84,25 +84,30 @@
           <p class="hint">Use this when you already have a merged/categorized CSV and want to continue with review/export.</p>
           <p class="hint">Using server-side configuration. Upload a config file above to override for this job.</p>
 
-          <label for="dedupe_scope">Dedupe Scope</label>
-          <select id="dedupe_scope" name="dedupe_scope">
-            <option value="within_job" selected>Current merge only</option>
-          </select>
-
-          <label class="inline-option">
-            <input id="no_dedup" name="no_dedup" type="checkbox" value="true">
-            Disable built-in per-job dedupe
-          </label>
-
-          <label class="inline-option">
-            <input id="dedupe_first_only" name="dedupe_first_only" type="checkbox" value="true">
-            Keep only first duplicate occurrence (drop all later repeats)
-          </label>
-
           <label class="inline-option">
             <input id="push_firefly" name="push_firefly" type="checkbox" value="true">
             Upload to Firefly after merge
           </label>
+
+          <details class="advanced-options">
+            <summary>Advanced Options</summary>
+            <div class="details-body">
+              <label for="dedupe_scope">Dedupe Scope</label>
+              <select id="dedupe_scope" name="dedupe_scope">
+                <option value="within_job" selected>Current merge only</option>
+              </select>
+
+              <label class="inline-option">
+                <input id="no_dedup" name="no_dedup" type="checkbox" value="true">
+                Disable built-in per-job dedupe
+              </label>
+
+              <label class="inline-option">
+                <input id="dedupe_first_only" name="dedupe_first_only" type="checkbox" value="true">
+                Keep only first duplicate occurrence (drop all later repeats)
+              </label>
+            </div>
+          </details>
 
           <button id="submit" type="submit">Start Merge Job</button>
         </form>
@@ -547,6 +552,19 @@
         <button type="button" id="detail-modal-close" class="secondary-btn">Close</button>
       </div>
       <div id="detail-modal-content"></div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <div id="confirm-modal" class="confirm-modal" hidden>
+    <div class="confirm-modal-backdrop"></div>
+    <div class="confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <p id="confirm-modal-message"></p>
+      <div class="confirm-modal-actions">
+        <button type="button" id="confirm-modal-cancel" class="secondary-btn">Cancel</button>
+        <button type="button" id="confirm-modal-ok" class="danger-btn">Confirm</button>
+      </div>
     </div>
   </div>
 
