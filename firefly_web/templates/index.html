@@ -41,12 +41,12 @@
       <section class="panel tab-shell">
         <div class="row-between wrap-sm">
           <div class="small-controls">
-            <button type="button" class="subtab-btn active" data-sub-tab="merge-form-panel">Firefly Merge</button>
+            <button type="button" class="subtab-btn active" data-sub-tab="merge-form-panel">Merge</button>
             <button type="button" class="subtab-btn" data-sub-tab="job-panel">Job Status</button>
             <button type="button" class="subtab-btn" data-sub-tab="duplicates-panel">Duplicate Review</button>
-            <button type="button" class="subtab-btn" data-sub-tab="analytics-panel">Balances</button>
             <button type="button" class="subtab-btn" data-sub-tab="transactions-panel">Transactions</button>
             <button type="button" class="subtab-btn" data-sub-tab="ollama-panel">Ollama</button>
+            <button type="button" class="subtab-btn" data-sub-tab="analytics-panel">Balances</button>
             <button type="button" class="subtab-btn" data-sub-tab="export-panel">Export</button>
           </div>
           <div class="active-job-controls">
@@ -58,6 +58,32 @@
             <button type="button" id="clear-active-job" class="secondary-btn">Clear</button>
             <button type="button" id="jump-history-btn" class="secondary-btn">History</button>
           </div>
+        </div>
+        <div id="workflow-stepper" class="workflow-stepper" aria-label="Workflow progress">
+          <button type="button" class="stepper-step" data-stepper-step="merge" data-sub-tab="merge-form-panel">
+            <span class="step-indicator"><span class="step-num">1</span><span class="step-check">✓</span></span>
+            <span class="step-label">Merge</span>
+          </button>
+          <div class="stepper-connector"></div>
+          <button type="button" class="stepper-step" data-stepper-step="review" data-sub-tab="duplicates-panel">
+            <span class="step-indicator"><span class="step-num">2</span><span class="step-check">✓</span></span>
+            <span class="step-label">Review</span>
+          </button>
+          <div class="stepper-connector"></div>
+          <button type="button" class="stepper-step" data-stepper-step="categorise" data-sub-tab="transactions-panel">
+            <span class="step-indicator"><span class="step-num">3</span><span class="step-check">✓</span></span>
+            <span class="step-label">Categorise</span>
+          </button>
+          <div class="stepper-connector"></div>
+          <button type="button" class="stepper-step" data-stepper-step="verify" data-sub-tab="analytics-panel">
+            <span class="step-indicator"><span class="step-num">4</span><span class="step-check">✓</span></span>
+            <span class="step-label">Verify</span>
+          </button>
+          <div class="stepper-connector"></div>
+          <button type="button" class="stepper-step" data-stepper-step="export" data-sub-tab="export-panel">
+            <span class="step-indicator"><span class="step-num">5</span><span class="step-check">✓</span></span>
+            <span class="step-label">Export</span>
+          </button>
         </div>
         <p id="active-job-meta" class="hint">No active job selected.</p>
       </section>
@@ -221,22 +247,6 @@
               <tbody id="duplicates-body"></tbody>
             </table>
           </div>
-        </div>
-      </section>
-
-      <section class="panel subpanel" id="analytics-panel" hidden>
-        <h2>Balances</h2>
-        <div id="balances-empty-state" class="empty-state" hidden>
-          <p>Select a merge job to view account balances.</p>
-          <div class="small-controls">
-            <button type="button" class="empty-open-latest">Open Latest Job</button>
-            <button type="button" class="secondary-btn empty-go-history">Go To History</button>
-          </div>
-        </div>
-        <div id="balances-content">
-          <p class="hint">Running balance per source account based on merged transactions.</p>
-          <svg id="balance-chart" viewBox="0 0 980 320" preserveAspectRatio="none" aria-label="Balance chart"></svg>
-          <div id="balance-legend" class="legend"></div>
         </div>
       </section>
 
@@ -408,6 +418,22 @@
             </thead>
             <tbody id="ollama-events-body"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="panel subpanel" id="analytics-panel" hidden>
+        <h2>Balances</h2>
+        <div id="balances-empty-state" class="empty-state" hidden>
+          <p>Select a merge job to view account balances.</p>
+          <div class="small-controls">
+            <button type="button" class="empty-open-latest">Open Latest Job</button>
+            <button type="button" class="secondary-btn empty-go-history">Go To History</button>
+          </div>
+        </div>
+        <div id="balances-content">
+          <p class="hint">Running balance per source account based on merged transactions.</p>
+          <svg id="balance-chart" viewBox="0 0 980 320" preserveAspectRatio="none" aria-label="Balance chart"></svg>
+          <div id="balance-legend" class="legend"></div>
         </div>
       </section>
 

@@ -801,6 +801,87 @@ pre {
   }
 }
 
+/* ── Workflow stepper ───────────────────────────────────────────────────── */
+.workflow-stepper {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 0 0.25rem;
+  overflow-x: auto;
+  gap: 0;
+}
+.stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  min-width: 72px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+.stepper-step:hover { background: var(--accent-soft); }
+.step-indicator {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75em;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+.step-check { display: none; }
+.step-num   { display: block; }
+.step-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.stepper-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  min-width: 12px;
+  transition: background 0.15s;
+}
+
+/* active step */
+.stepper-step.step-active .step-indicator {
+  background: var(--accent);
+  color: #fff;
+}
+.stepper-step.step-active .step-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* completed step */
+.stepper-step.step-done .step-indicator {
+  background: #16a34a;
+  color: #fff;
+}
+.stepper-step.step-done .step-check { display: block; }
+.stepper-step.step-done .step-num   { display: none; }
+.stepper-step.step-done .step-label { color: #16a34a; }
+.stepper-connector.connector-done   { background: #16a34a; }
+
+/* locked step */
+.stepper-step.step-locked .step-indicator {
+  background: var(--border);
+  opacity: 0.5;
+}
+.stepper-step.step-locked { opacity: 0.5; cursor: not-allowed; }
+.stepper-step.step-locked:hover { background: none; }
+
 /* ── Status badges ──────────────────────────────────────────────────────── */
 .status-badge {
   display: inline-block;

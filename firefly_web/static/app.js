@@ -398,6 +398,7 @@ function activateSubTab(name) {
     stopOllamaPolling();
   }
 
+  updateWorkflowStepper();
   saveSessionState();
 }
 
@@ -620,6 +621,7 @@ function renderJob(job) {
   jobIdEl.textContent = job.id || "";
   jobStatusEl.innerHTML = renderStatusBadge(job.status);
   activeJobStatus = String(job.status || "");
+  updateWorkflowStepper();
   jobCreatedEl.textContent = job.created_at || "-";
   jobUpdatedEl.textContent = job.updated_at || "-";
 
@@ -1463,7 +1465,68 @@ function applyDuplicateReviewGateToActions() {
   if (categorizeOllamaBtn) categorizeOllamaBtn.disabled = !allowed;
   if (categorizeAllOllamaBtn) categorizeAllOllamaBtn.disabled = !allowed;
   if (startFireflyExportBtn) startFireflyExportBtn.disabled = !allowed;
+  updateWorkflowStepper();
 }
+
+// ── Workflow stepper ────────────────────────────────────────────────────────
+// Step → which sub-tab panels belong to it (first = navigation target)
+const WORKFLOW_STEPS = [
+  { key: "merge",     tabs: ["merge-form-panel", "job-panel"] },
+  { key: "review",    tabs: ["duplicates-panel"] },
+  { key: "categorise",tabs: ["transactions-panel", "ollama-panel"] },
+  { key: "verify",    tabs: ["analytics-panel"] },
+  { key: "export",    tabs: ["export-panel"] },
+];
+
+function updateWorkflowStepper() {
+  const stepperEl = document.getElementById("workflow-stepper");
+  if (!stepperEl) return;
+
+  const activeTab = getActiveSubTab();
+  const jobDone = activeJobId && (activeJobStatus === "completed" || activeJobStatus === "failed");
+  const reviewOk = !!(jobDone && duplicateReviewStatus && duplicateReviewStatus.can_proceed);
+
+  // Which step index is currently active?
+  let activeStepIdx = 0;
+  WORKFLOW_STEPS.forEach((step, i) => {
+    if (step.tabs.includes(activeTab)) activeStepIdx = i;
+  });
+
+  const stepEls = Array.from(stepperEl.querySelectorAll(".stepper-step"));
+  const connectorEls = Array.from(stepperEl.querySelectorAll(".stepper-connector"));
+
+  stepEls.forEach((el, i) => {
+    const step = WORKFLOW_STEPS[i];
+    if (!step) return;
+
+    // Determine state
+    let isDone = false;
+    let isLocked = false;
+    if (step.key === "merge")      { isDone = !!jobDone; }
+    else if (step.key === "review") { isDone = reviewOk; isLocked = !jobDone; }
+    else { isLocked = !reviewOk; }
+
+    const isActive = i === activeStepIdx;
+    el.classList.toggle("step-active",  isActive);
+    el.classList.toggle("step-done",    !isActive && isDone);
+    el.classList.toggle("step-locked",  !isActive && !isDone && isLocked);
+  });
+
+  // Colour connectors between done steps
+  connectorEls.forEach((el, i) => {
+    const leftDone = stepEls[i] && (stepEls[i].classList.contains("step-done") || stepEls[i].classList.contains("step-active"));
+    const rightDone = stepEls[i + 1] && stepEls[i + 1].classList.contains("step-done");
+    el.classList.toggle("connector-done", leftDone && rightDone);
+  });
+}
+
+// Wire stepper button clicks → navigate to that step's first tab
+document.querySelectorAll(".stepper-step[data-sub-tab]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const subTab = String(btn.dataset.subTab || "");
+    if (subTab && subTab in subPanels) activateSubTab(subTab);
+  });
+});
 
 function updateDuplicateReviewGateUI() {
   if (!dupGateSummary) {
