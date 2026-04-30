@@ -20,6 +20,7 @@ from firefly_merge.main import DUPLICATE_FIELDNAMES, FIELDNAMES, summarize_firef
 
 from .categorization import build_ollama_prompt, categorize_ollama_batch_with_trace, categorize_ollama_with_trace
 from .dedupe import apply_global_dedupe
+from .locks import get_job_lock
 from .settings import Settings
 from .store import JobStore
 
@@ -406,7 +407,8 @@ class JobRunner:
                 "target_seconds": round(target_seconds, 3),
             }
             if summary_lines:
-                log(f"Firefly response summary:\n{'\n\n'.join(summary_lines)}")
+                _summary_sep = "\n\n"
+                log(f"Firefly response summary:\n{_summary_sep.join(summary_lines)}")
 
             if failed_rows == 0:
                 self.store.set_firefly_export_completed(
@@ -715,7 +717,8 @@ class JobRunner:
                     continue
 
                 try:
-                    _write_csv(merged_path, rows, fieldnames)
+                    with get_job_lock(job_id):
+                        _write_csv(merged_path, rows, fieldnames)
                 except Exception:
                     # Keep processing queue even if persistence fails once.
                     pass
@@ -739,7 +742,8 @@ class JobRunner:
             self._clear_ollama_cancelled(job_id)
 
         try:
-            _write_csv(merged_path, rows, fieldnames)
+            with get_job_lock(job_id):
+                _write_csv(merged_path, rows, fieldnames)
         except Exception:
             # Event states already captured. CSV write failures are intentionally silent here.
             pass

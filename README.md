@@ -1,18 +1,78 @@
-﻿# Firefly Merge Web Tool
+# Firefly Merge Web Tool
 
 Web-based tool to merge bank exports (CSV/MT940), review duplicates, categorize transactions with Ollama, and export to Firefly III without duplicate imports.
 
-## Current capabilities
+## Workflow
 
-- Upload bank statements via file picker or drag-and-drop
-- Parse CSV and MT940 exports
-- Merge + dedupe transactions with explicit duplicate reasoning
-- Manual duplicate review gate before categorization/export
-- Transaction table with filtering, sorting, paging, selection, detail modal
-- Category editing via dropdown
-- Ollama queue with audit details (prompt/response)
-- Firefly export queue with stop/delete/retry and event history
-- Configuration page for Firefly III, importer JSON, merge account mapping, and Ollama
+The tool guides you through five sequential steps:
+
+```
+Merge → Review → Categorise → Verify → Export
+```
+
+A visual stepper at the top of the page shows your current position and locks forward steps until earlier ones are complete.
+
+### Step 1 — Merge
+
+Upload one or more bank statement files (CSV or MT940). The tool merges them, deduplicates across files, and creates a job.
+
+![Merge form](docs/screenshots/01_merge_form.png)
+
+### Step 2 — Review duplicates
+
+Transactions identified as potential duplicates are shown side-by-side for manual review. You must confirm or dismiss each pair before proceeding.
+
+![Duplicate review](docs/screenshots/03_duplicate_review.png)
+
+![Duplicates detail](docs/screenshots/11_duplicates_detail.png)
+
+### Step 3 — Categorise
+
+Transactions are listed in a sortable, filterable table. Categories can be edited inline. Optionally, send batches to Ollama for AI-assisted categorization.
+
+![Transactions table](docs/screenshots/04_transactions.png)
+
+**Column management** — click ⚙ Columns to toggle visibility, drag to reorder, or sort by any column header:
+
+![Column picker](docs/screenshots/05_column_picker.png)
+
+**Sort by amount** — click any column header to sort ascending/descending:
+
+![Sorted by amount](docs/screenshots/06_sorted_by_amount.png)
+
+### Step 4 — Verify
+
+Review account balances to confirm the merged data looks correct before exporting.
+
+![Balances](docs/screenshots/07_balances.png)
+
+### Step 5 — Export
+
+Push transactions to Firefly III. Exports run in the background with per-event status. Failed rows can be retried individually.
+
+![Export panel](docs/screenshots/08_export_panel.png)
+
+---
+
+## Job status
+
+The Job Status panel shows the merge log, transaction counts, and detected duplicates for the active job.
+
+![Job status](docs/screenshots/02_job_status.png)
+
+## History
+
+All previous jobs are listed in the History tab with sortable columns and one-click reload.
+
+![History](docs/screenshots/09_history.png)
+
+## Workflow stepper
+
+The stepper updates automatically as you progress through the workflow, marking completed steps in green and locking unavailable steps.
+
+![Workflow stepper](docs/screenshots/10_workflow_stepper.png)
+
+---
 
 ## Quick start (Docker Compose)
 
@@ -65,8 +125,20 @@ In `docker-compose.yml`:
 
 ```bash
 pip install -r requirements.txt
-python -m uvicorn firefly_web.app:app --host 127.0.0.1 --port 8080
+FIREFLY_WEB_DATA_DIR=./data APP_CONFIG_PATH=./config.yml \
+  python -m uvicorn firefly_web.app:app --host 127.0.0.1 --port 8080
 ```
+
+## Test data
+
+Sample bank exports for development and testing are in `test_data/`:
+
+| File | Format | Transactions | Account |
+|------|--------|-------------|---------|
+| `ing_export_jan2025.csv` | ING CSV | 16 | NL91INGB0001234567 |
+| `bunq_export_jan2025.csv` | bunq CSV | 17 | NL91INGB0001234567 |
+
+Both files cover the same account for January 2025, with intentional overlaps to produce duplicate candidates during a merge. Upload both files together in the Merge step to see the full workflow.
 
 ## Security / repository hygiene
 
