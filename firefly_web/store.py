@@ -1,4 +1,4 @@
-"""SQLite persistence for jobs, logs, and global dedupe fingerprints."""
+"""SQLite persistence for jobs and logs."""
 
 from __future__ import annotations
 
@@ -34,13 +34,6 @@ class JobStore:
                     error TEXT NOT NULL DEFAULT '',
                     message TEXT NOT NULL DEFAULT '',
                     logs TEXT NOT NULL DEFAULT ''
-                );
-
-                CREATE TABLE IF NOT EXISTS fingerprints (
-                    fingerprint TEXT PRIMARY KEY,
-                    external_id TEXT NOT NULL DEFAULT '',
-                    job_id TEXT NOT NULL,
-                    created_at TEXT NOT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS system_config (
@@ -110,8 +103,6 @@ class JobStore:
             )
             _ensure_ollama_event_schema(con)
             _ensure_firefly_export_event_schema(con)
-            # Cross-run dedupe is disabled; keep table but clear historical fingerprints.
-            con.execute("DELETE FROM fingerprints")
             existing = con.execute("SELECT value_json FROM system_config WHERE key = 'global'").fetchone()
             if existing is None:
                 con.execute(
@@ -317,31 +308,6 @@ class JobStore:
         if row is None:
             return 0
         return int(row["c"] or 0)
-
-    def lookup_fingerprint(self, fingerprint: str) -> Optional[str]:
-        with self._connect() as con:
-            row = con.execute(
-                "SELECT external_id FROM fingerprints WHERE fingerprint = ?",
-                (fingerprint,),
-            ).fetchone()
-        if row is None:
-            return None
-        return str(row["external_id"] or "")
-
-    def insert_fingerprint(self, fingerprint: str, external_id: str, job_id: str) -> bool:
-        with self._connect() as con:
-            try:
-                con.execute(
-                    """
-                    INSERT INTO fingerprints (fingerprint, external_id, job_id, created_at)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (fingerprint, external_id or "", job_id, utc_now_iso()),
-                )
-            except sqlite3.IntegrityError:
-                return False
-            con.commit()
-        return True
 
     def get_system_config(self) -> Dict[str, Any]:
         with self._connect() as con:
@@ -1304,7 +1270,6 @@ class JobStore:
             row = con.execute("SELECT id FROM jobs WHERE id = ?", (token,)).fetchone()
             if row is None:
                 return False
-            con.execute("DELETE FROM fingerprints WHERE job_id = ?", (token,))
             con.execute("DELETE FROM firefly_exports WHERE job_id = ?", (token,))
             con.execute("DELETE FROM firefly_export_events WHERE job_id = ?", (token,))
             con.execute("DELETE FROM ollama_events WHERE job_id = ?", (token,))

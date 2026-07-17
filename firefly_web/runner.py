@@ -16,10 +16,9 @@ from typing import Any, Dict, List, Tuple
 
 import yaml
 
-from firefly_merge.main import DUPLICATE_FIELDNAMES, FIELDNAMES, summarize_firefly_result, upload_to_firefly
+from firefly_merge.main import FIELDNAMES, summarize_firefly_result, upload_to_firefly
 
 from .categorization import build_ollama_prompt, categorize_ollama_batch_with_trace, categorize_ollama_with_trace
-from .dedupe import apply_global_dedupe
 from .locks import get_job_lock
 from .settings import Settings
 from .store import JobStore
@@ -162,19 +161,11 @@ class JobRunner:
             if not merged_path.exists():
                 raise FileNotFoundError(f"Expected merged output was not created: {merged_path}")
 
-            dedupe_scope = str(options.get("dedupe_scope") or "within_job")
-            global_duplicates_added = 0
-            global_rows_inserted = 0
-            if dedupe_scope == "global":
-                log("Cross-run dedupe requested but disabled. Using current-merge-only dedupe.")
-            else:
-                log("Using current-merge-only dedupe (no cross-run fingerprint matching).")
-
             stats = {
                 "merged_rows": _count_csv_rows(merged_path),
                 "duplicate_rows": _count_csv_rows(duplicates_path),
-                "global_duplicates_added": global_duplicates_added,
-                "global_rows_inserted": global_rows_inserted,
+                "global_duplicates_added": 0,
+                "global_rows_inserted": 0,
             }
             artifacts = {
                 "merged_csv": str(merged_path),
@@ -790,29 +781,6 @@ class JobRunner:
             if value:
                 args.extend([flag, value])
         return args
-
-    def _apply_global_dedupe(
-        self,
-        job_id: str,
-        merged_path: Path,
-        duplicates_path: Path,
-        log,
-    ) -> Tuple[int, int]:
-        rows, fieldnames = _read_csv(merged_path)
-        kept_rows, global_duplicates, inserted = apply_global_dedupe(rows, self.store, job_id)
-        _write_csv(merged_path, kept_rows, fieldnames or FIELDNAMES)
-
-        if not global_duplicates:
-            return 0, inserted
-
-        existing_duplicates: List[Dict[str, str]] = []
-        if duplicates_path.exists():
-            existing_duplicates, _ = _read_csv(duplicates_path)
-
-        combined = existing_duplicates + global_duplicates
-        _write_csv(duplicates_path, combined, DUPLICATE_FIELDNAMES)
-        log(f"Appended {len(global_duplicates)} cross-run duplicates to {duplicates_path.name}.")
-        return len(global_duplicates), inserted
 
 
 def _read_csv(path: Path) -> Tuple[List[Dict[str, str]], List[str]]:

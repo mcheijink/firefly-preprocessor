@@ -26,8 +26,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response as StarletteResponse
 
-from firefly_merge.main import DUPLICATE_FIELDNAMES, FIELDNAMES
-
 from .categorization import categorize_default
 from .locks import get_job_lock
 from .runner import JobRunner
@@ -242,19 +240,12 @@ async def health() -> Dict[str, str]:
 async def create_job(
     files: List[UploadFile] = File(...),
     config_file: Optional[UploadFile] = File(default=None),
-    dedupe_scope: str = Form(default="within_job"),
     no_dedup: bool = Form(default=False),
     dedupe_first_only: bool = Form(default=False),
     push_firefly: bool = Form(default=False),
 ) -> Dict[str, str]:
     if not files:
         raise HTTPException(status_code=400, detail="At least one bank statement file is required.")
-
-    dedupe_scope = dedupe_scope.strip().lower()
-    if dedupe_scope == "global":
-        dedupe_scope = "within_job"
-    if dedupe_scope not in {"within_job"}:
-        raise HTTPException(status_code=400, detail="dedupe_scope must be within_job.")
 
     job_id = uuid.uuid4().hex
     job_dir = (settings.jobs_dir / job_id).resolve()
@@ -290,7 +281,6 @@ async def create_job(
     config_path = _build_effective_job_config(base_config_path=config_path, job_dir=job_dir)
 
     options = {
-        "dedupe_scope": dedupe_scope,
         "no_dedup": no_dedup,
         "dedupe_first_only": dedupe_first_only,
         "push_firefly": push_firefly,
@@ -314,85 +304,6 @@ async def create_job(
         options=options,
     )
     return {"job_id": job_id, "status": "queued"}
-
-
-@app.post("/api/jobs/import")
-async def import_merged_job(
-    merged_file: UploadFile = File(...),
-    duplicates_file: Optional[UploadFile] = File(default=None),
-) -> Dict[str, str]:
-    raw_name = str(merged_file.filename or "").strip()
-    if not raw_name:
-        raw_name = "merged_import.csv"
-
-    job_id = uuid.uuid4().hex
-    job_dir = (settings.jobs_dir / job_id).resolve()
-    input_dir = (job_dir / "input").resolve()
-    output_dir = (job_dir / "output").resolve()
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    merged_name = _safe_filename(raw_name)
-    merged_input_path = (input_dir / merged_name).resolve()
-    with merged_input_path.open("wb") as handle:
-        shutil.copyfileobj(merged_file.file, handle)
-    await merged_file.close()
-
-    merged_rows, merged_fieldnames = read_transactions(merged_input_path)
-    normalized_rows, normalized_fields = _normalize_imported_merged_rows(merged_rows, merged_fieldnames)
-    merged_output_path = (output_dir / "merged.csv").resolve()
-    _write_rows_csv(merged_output_path, normalized_rows, normalized_fields)
-
-    duplicates_output_path = (output_dir / "merged_duplicates.csv").resolve()
-    duplicate_rows_count = 0
-    input_files = [merged_name]
-    if duplicates_file is not None and duplicates_file.filename:
-        dup_name = _safe_filename(duplicates_file.filename)
-        dup_input_path = (input_dir / dup_name).resolve()
-        with dup_input_path.open("wb") as handle:
-            shutil.copyfileobj(duplicates_file.file, handle)
-        await duplicates_file.close()
-        dup_rows, dup_fields = read_transactions(dup_input_path)
-        normalized_dup_rows, normalized_dup_fields = _normalize_imported_duplicates_rows(dup_rows, dup_fields)
-        _write_rows_csv(duplicates_output_path, normalized_dup_rows, normalized_dup_fields)
-        duplicate_rows_count = len(normalized_dup_rows)
-        input_files.append(dup_name)
-    elif duplicates_output_path.exists():
-        try:
-            duplicates_output_path.unlink()
-        except OSError:
-            pass
-
-    options = {
-        "import_mode": "merged_csv",
-        "duplicate_review": {
-            "required": bool(duplicate_rows_count > 0),
-            "confirmed": bool(duplicate_rows_count <= 0),
-            "confirmed_at": utc_now_iso() if duplicate_rows_count <= 0 else "",
-            "restored_rows_total": 0,
-            "updated_at": utc_now_iso(),
-        },
-    }
-    store.create_job(job_id=job_id, input_files=input_files, options=options)
-    store.append_log(job_id, f"Imported merged CSV: {merged_name}")
-    if duplicate_rows_count:
-        store.append_log(job_id, f"Imported duplicates CSV rows: {duplicate_rows_count}")
-    store.set_completed(
-        job_id=job_id,
-        artifacts={
-            "merged_csv": str(merged_output_path),
-            "duplicates_csv": str(duplicates_output_path) if duplicate_rows_count else "",
-            "reconciliation_csv": "",
-        },
-        stats={
-            "merged_rows": len(normalized_rows),
-            "duplicate_rows": duplicate_rows_count,
-            "global_duplicates_added": 0,
-            "global_rows_inserted": 0,
-        },
-        message="Imported merged CSV as completed job.",
-    )
-    return {"job_id": job_id, "status": "completed"}
 
 
 @app.get("/api/jobs")
@@ -1327,71 +1238,6 @@ def _verify_importer_json_file(path: Path) -> Dict[str, object]:
         "top_level_key_count": len(keys),
         "top_level_keys": keys[:100],
     }
-
-
-def _normalize_imported_merged_rows(
-    rows: List[Dict[str, str]],
-    fieldnames: List[str],
-) -> tuple[List[Dict[str, str]], List[str]]:
-    if not fieldnames:
-        raise HTTPException(status_code=400, detail="Imported CSV is empty or has no header.")
-    lowered = {str(name or "").strip().lower() for name in fieldnames}
-    required = {"date", "amount", "description"}
-    if not required.issubset(lowered):
-        raise HTTPException(
-            status_code=400,
-            detail="Imported CSV must contain at least: date, amount, description.",
-        )
-
-    ordered_fields: List[str] = list(FIELDNAMES)
-    for name in fieldnames:
-        token = str(name or "").strip()
-        if token and token not in ordered_fields:
-            ordered_fields.append(token)
-
-    field_lookup = {str(name or "").strip().lower(): str(name or "").strip() for name in fieldnames}
-    normalized_rows: List[Dict[str, str]] = []
-    for row in rows:
-        out: Dict[str, str] = {}
-        for field in ordered_fields:
-            source_key = field_lookup.get(field.lower(), field)
-            value = row.get(source_key, "")
-            out[field] = str(value if value is not None else "")
-        normalized_rows.append(out)
-    return normalized_rows, ordered_fields
-
-
-def _normalize_imported_duplicates_rows(
-    rows: List[Dict[str, str]],
-    fieldnames: List[str],
-) -> tuple[List[Dict[str, str]], List[str]]:
-    if not fieldnames:
-        return [], list(DUPLICATE_FIELDNAMES)
-    ordered_fields: List[str] = list(DUPLICATE_FIELDNAMES)
-    for name in fieldnames:
-        token = str(name or "").strip()
-        if token and token not in ordered_fields:
-            ordered_fields.append(token)
-    field_lookup = {str(name or "").strip().lower(): str(name or "").strip() for name in fieldnames}
-    normalized_rows: List[Dict[str, str]] = []
-    for row in rows:
-        out: Dict[str, str] = {}
-        for field in ordered_fields:
-            source_key = field_lookup.get(field.lower(), field)
-            value = row.get(source_key, "")
-            out[field] = str(value if value is not None else "")
-        normalized_rows.append(out)
-    return normalized_rows, ordered_fields
-
-
-def _write_rows_csv(path: Path, rows: List[Dict[str, str]], fieldnames: List[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames or [])
-        if fieldnames:
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({name: row.get(name, "") for name in fieldnames})
 
 
 def _compute_duplicate_review_status(job_id: str) -> Dict[str, object]:
