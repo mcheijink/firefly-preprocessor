@@ -207,28 +207,49 @@ class ConfigResetRequest(BaseModel):
     clear_uploaded_importer_files: bool = True
 
 
+def _render_page(request: Request, template: str, context: Dict[str, object] | None = None) -> HTMLResponse:
+    payload = {"default_config_path": str(settings.default_config_path), "data_dir": str(settings.data_dir)}
+    if context:
+        payload.update(context)
+    return templates.TemplateResponse(request, template, payload)
+
+
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request,
-        "index.html",
-        {
-            "default_config_path": str(settings.default_config_path),
-            "data_dir": str(settings.data_dir),
-        },
-    )
+async def merge_page(request: Request) -> HTMLResponse:
+    return _render_page(request, "merge.html", {"nav_active": "merge"})
+
+
+@app.get("/history", response_class=HTMLResponse)
+async def history_page(request: Request) -> HTMLResponse:
+    return _render_page(request, "history.html", {"nav_active": "jobs"})
 
 
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request,
-        "config.html",
-        {
-            "default_config_path": str(settings.default_config_path),
-            "data_dir": str(settings.data_dir),
-        },
-    )
+    return _render_page(request, "config.html", {"nav_active": "config"})
+
+
+_JOB_PAGES = {
+    "": ("job_status.html", "status"),
+    "review": ("review.html", "review"),
+    "transactions": ("transactions.html", "transactions"),
+    "balances": ("balances.html", "balances"),
+    "export": ("export.html", "export"),
+}
+
+
+@app.get("/jobs/{job_id}", response_class=HTMLResponse)
+async def job_status_page(request: Request, job_id: str) -> HTMLResponse:
+    template, subnav = _JOB_PAGES[""]
+    return _render_page(request, template, {"nav_active": "jobs", "job_id": job_id, "subnav_active": subnav})
+
+
+@app.get("/jobs/{job_id}/{section}", response_class=HTMLResponse)
+async def job_section_page(request: Request, job_id: str, section: str) -> HTMLResponse:
+    if section not in _JOB_PAGES or section == "":
+        raise HTTPException(status_code=404, detail="Unknown job page.")
+    template, subnav = _JOB_PAGES[section]
+    return _render_page(request, template, {"nav_active": "jobs", "job_id": job_id, "subnav_active": subnav})
 
 
 @app.get("/api/health")
@@ -346,6 +367,31 @@ async def get_job(job_id: str) -> Dict[str, object]:
             artifact_urls[artifact_key] = f"/api/jobs/{job_id}/artifacts/{artifact_key}"
     job["artifact_urls"] = artifact_urls
     return job
+
+
+@app.get("/api/jobs/{job_id}/summary")
+async def get_job_summary(job_id: str) -> Dict[str, object]:
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    review = _compute_duplicate_review_status(job_id)
+    total_rows = 0
+    categorized_rows = 0
+    try:
+        merged_path = _resolve_job_merged_path(job_id)
+        rows, _ = read_transactions(merged_path)
+        total_rows = len(rows)
+        categorized_rows = sum(1 for r in rows if str(r.get("category") or "").strip())
+    except HTTPException:
+        pass
+    exports = store.list_firefly_exports(job_id=job_id, limit=1)
+    return {
+        "job": job,
+        "review": review,
+        "total_rows": total_rows,
+        "categorized_rows": categorized_rows,
+        "latest_export": exports[0] if exports else None,
+    }
 
 
 @app.get("/api/jobs/{job_id}/transactions")
