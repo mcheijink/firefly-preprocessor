@@ -60,6 +60,7 @@ let duplicateReviewStatus = {
   restored_rows_total: 0,
 };
 let reviewGateBannerEl = null;
+let configErrorBannerEl = null;
 
 // ── tables.js column managers ───────────────────────────────────────────
 function sortExports(items, key, dir) {
@@ -256,6 +257,42 @@ async function refreshDuplicateReviewGate() {
   }
   duplicateReviewStatus = await fetchDuplicateReviewStatus(jobId);
   renderReviewGateBanner();
+}
+
+// ── Config-error banner (usability fix, same pattern as
+// pages/transactions.js's showConfigErrorBanner): surfaces
+// config-dependent export failures -- e.g. runner.py's "Firefly upload URL
+// is not configured."/"Firefly importer JSON path is not configured." --
+// with a link to Configuration, additive to the existing #export-summary
+// text and window.alert. ──
+function isConfigError(message) {
+  const text = String(message || "").toLowerCase();
+  return text.includes("not configured") || text.includes("is not configured");
+}
+
+function showConfigErrorBanner(message) {
+  if (!exportContent) {
+    return;
+  }
+  if (!configErrorBannerEl) {
+    configErrorBannerEl = document.createElement("div");
+    configErrorBannerEl.className = "banner error";
+    configErrorBannerEl.id = "export-config-error-banner";
+    const controls = startFireflyExportBtn ? startFireflyExportBtn.closest(".small-controls") : null;
+    if (controls) {
+      controls.before(configErrorBannerEl);
+    } else {
+      exportContent.prepend(configErrorBannerEl);
+    }
+  }
+  configErrorBannerEl.innerHTML = `${escapeHtml(String(message || ""))} <a href="/config">Open Configuration</a>.`;
+}
+
+function clearConfigErrorBanner() {
+  if (configErrorBannerEl) {
+    configErrorBannerEl.remove();
+    configErrorBannerEl = null;
+  }
 }
 
 // Re-checked immediately before starting/retrying an export (mirrors
@@ -644,6 +681,9 @@ function renderFireflyExportRows(items) {
           await openFireflyExport(newExportId);
         }
       } catch (error) {
+        if (isConfigError(error.message)) {
+          showConfigErrorBanner(error.message);
+        }
         window.alert(error.message);
       } finally {
         btn.disabled = false;
@@ -699,6 +739,15 @@ function renderFireflyExportDetail(item) {
       `Export ${item.id || ""} is ${item.status || "unknown"}. ` +
       `Rows exported: ${stats.exported_rows ?? 0}, failed: ${stats.failed_rows ?? 0}, queued: ${stats.queued_rows ?? 0}, batches: ${stats.batches ?? 0}. ` +
       `${message || ""}`.trim();
+  }
+  // The Firefly URL/importer-JSON "not configured" RuntimeErrors raised in
+  // runner.py surface here (async worker failure), not as a thrown fetch
+  // error -- so the config-error banner is driven off the polled item's
+  // message, not just the click-handler catch blocks below.
+  if (isConfigError(message)) {
+    showConfigErrorBanner(message);
+  } else {
+    clearConfigErrorBanner();
   }
   if (exportLogsEl) {
     const hasLogs = !!String(item.logs || "").trim();
@@ -842,6 +891,9 @@ if (startFireflyExportBtn) {
         await openFireflyExport(activeExportId);
       }
     } catch (error) {
+      if (isConfigError(error.message)) {
+        showConfigErrorBanner(error.message);
+      }
       window.alert(error.message);
     } finally {
       startFireflyExportBtn.disabled = !!(duplicateReviewStatus && !duplicateReviewStatus.can_proceed);

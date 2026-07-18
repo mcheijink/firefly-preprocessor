@@ -91,6 +91,9 @@ let duplicateReviewStatus = {
 };
 let reviewGateBannerEl = null;
 
+let ollamaConfigBannerEl = null;
+let configErrorBannerEl = null;
+
 let ollamaTotalCount = 0;
 let ollamaPage = 1;
 let ollamaPageSize = Math.max(1, Number((ollamaPageSizeInput && ollamaPageSizeInput.value) || 20));
@@ -180,6 +183,10 @@ async function fetchTransactionDetail(id, rowSource, rowLocalIndex) {
 
 async function fetchDuplicateReviewStatus(id) {
   return apiGet(`/api/jobs/${id}/duplicates/review/status`);
+}
+
+async function fetchSystemConfig() {
+  return apiGet("/api/config");
 }
 
 async function categorize(id, mode, rowIndices, options = {}) {
@@ -288,6 +295,101 @@ async function refreshDuplicateReviewGate() {
   }
   duplicateReviewStatus = await fetchDuplicateReviewStatus(jobId);
   renderReviewGateBanner();
+}
+
+// ── Ollama config gate (usability fix): the Ollama categorize buttons
+// used to 400 with no visible explanation when Ollama is disabled/
+// unconfigured in Configuration. Mirrors renderReviewGateBanner's
+// disable-buttons + insert-`.banner.warn`-before-`.table-wrap` mechanism,
+// but fails open on a config fetch error (no banner, buttons stay enabled)
+// since the backend 400 remains the backstop either way. ──
+function applyOllamaConfigGate(config) {
+  const ollamaCfg = (config && typeof config === "object" && config.ollama) || {};
+  const enabled = !!ollamaCfg.enabled;
+  const url = String(ollamaCfg.url || "").trim();
+  const model = String(ollamaCfg.model || "").trim();
+  const configured = enabled && !!url && !!model;
+
+  if (categorizeOllamaBtn) {
+    categorizeOllamaBtn.disabled = categorizeOllamaBtn.disabled || !configured;
+    if (!configured) categorizeOllamaBtn.title = "Ollama is not enabled/configured. Enable it in Configuration.";
+  }
+  if (categorizeAllOllamaBtn) {
+    categorizeAllOllamaBtn.disabled = categorizeAllOllamaBtn.disabled || !configured;
+    if (!configured) categorizeAllOllamaBtn.title = "Ollama is not enabled/configured. Enable it in Configuration.";
+  }
+
+  if (!txContent) {
+    return;
+  }
+  if (configured) {
+    if (ollamaConfigBannerEl) {
+      ollamaConfigBannerEl.remove();
+      ollamaConfigBannerEl = null;
+    }
+    return;
+  }
+  if (!ollamaConfigBannerEl) {
+    ollamaConfigBannerEl = document.createElement("div");
+    ollamaConfigBannerEl.className = "banner warn";
+    ollamaConfigBannerEl.id = "tx-ollama-config-banner";
+    const tableWrap = txContent.querySelector(".table-wrap");
+    if (tableWrap) {
+      tableWrap.before(ollamaConfigBannerEl);
+    } else {
+      txContent.prepend(ollamaConfigBannerEl);
+    }
+  }
+  ollamaConfigBannerEl.innerHTML =
+    `AI categorization is off — <a href="/config">enable Ollama in Configuration</a>. ` +
+    `You can still set categories manually below.`;
+}
+
+async function refreshOllamaConfigGate() {
+  try {
+    const config = await fetchSystemConfig();
+    applyOllamaConfigGate(config);
+  } catch {
+    // Fail open: leave buttons/banner as-is, the backend 400 is the backstop.
+  }
+}
+
+// ── Config-error banner (usability fix): surfaces config-dependent
+// categorize failures (e.g. "Ollama categorization is disabled in
+// configuration.") with a link to Configuration, in addition to the
+// existing window.alert. ──
+function isConfigError(message) {
+  const text = String(message || "").toLowerCase();
+  return (
+    text.includes("disabled in configuration") ||
+    text.includes("missing in configuration") ||
+    text.includes("not configured")
+  );
+}
+
+function showConfigErrorBanner(message) {
+  if (!txContent) {
+    return;
+  }
+  if (!configErrorBannerEl) {
+    configErrorBannerEl = document.createElement("div");
+    configErrorBannerEl.className = "banner error";
+    configErrorBannerEl.id = "tx-config-error-banner";
+    const tableWrap = txContent.querySelector(".table-wrap");
+    if (tableWrap) {
+      tableWrap.before(configErrorBannerEl);
+    } else {
+      txContent.prepend(configErrorBannerEl);
+    }
+  }
+  configErrorBannerEl.innerHTML = `${escapeHtml(String(message || ""))} <a href="/config">Open Configuration</a>.`;
+}
+
+function clearConfigErrorBanner() {
+  if (configErrorBannerEl) {
+    configErrorBannerEl.remove();
+    configErrorBannerEl = null;
+  }
 }
 
 // Re-checked immediately before every categorize action (mirrors app.js's
@@ -566,6 +668,7 @@ async function runCategorization(mode, allRows) {
     const autoExport = !!(autoExportAfterCategorizeInput && autoExportAfterCategorizeInput.checked && isOllama);
 
     const result = await categorize(jobId, mode, selection, { autoExport });
+    clearConfigErrorBanner();
     if (mode === "ollama") {
       const exportInfo = result.auto_export
         ? (result.export_id ? ` Auto export job: ${result.export_id}.` : " Auto export is enabled; categorized batches will be queued to export.")
@@ -579,6 +682,9 @@ async function runCategorization(mode, allRows) {
     selectedRows.clear();
     await loadTransactions(true);
   } catch (error) {
+    if (isConfigError(error.message)) {
+      showConfigErrorBanner(error.message);
+    }
     window.alert(error.message);
   }
 }
@@ -1130,6 +1236,7 @@ async function initTransactionsPage() {
   } catch (error) {
     window.alert(error.message);
   }
+  await refreshOllamaConfigGate();
   try {
     await loadTransactions(true);
   } catch (error) {
