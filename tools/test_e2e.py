@@ -60,6 +60,7 @@ def main() -> int:
         [sys.executable, "-m", "uvicorn", "firefly_web.app:app", "--port", str(port)],
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
     )
+    ok = False
     try:
         wait_health(base)
 
@@ -112,11 +113,19 @@ def main() -> int:
         # Deleted endpoints stay deleted
         assert requests.post(f"{base}/api/jobs/import").status_code in {404, 405}
 
+        ok = True
         print("E2E OK")
         return 0
     finally:
         server.terminate()
         server.wait(timeout=10)
+        output = server.stdout.read().decode("utf-8", errors="replace") if server.stdout else ""
+        if not ok and output:
+            lines = output.split("\n")
+            last_lines = lines[-100:] if len(lines) > 100 else lines
+            print("---- server log ----", file=sys.stderr)
+            for line in last_lines:
+                print(line, file=sys.stderr)
 
 
 if __name__ == "__main__":
