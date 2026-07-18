@@ -109,6 +109,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .status-chip.completed { color: var(--credit); border-color: var(--credit); }
 .status-chip.failed { color: var(--danger); border-color: var(--danger); }
 .status-chip.running { color: var(--flag); border-color: var(--flag); }
+.chart-frame { fill: none; stroke: var(--rule); }
 .queue-progress { height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
 .queue-progress-fill { height: 100%; width: 0; background: var(--ledger); transition: width .3s; }
 details.cat-log > summary, details.advanced-options > summary { cursor: pointer; font-weight: 600; margin: .5rem 0; }
