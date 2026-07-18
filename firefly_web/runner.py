@@ -320,7 +320,7 @@ class JobRunner:
                         request_payload=request_payload,
                     )
 
-                tmp_path = merged_path.with_name(f"{merged_path.stem}_upload_{batch_no}{merged_path.suffix}")
+                tmp_path = merged_path.with_name(f"{merged_path.stem}_upload_{export_id[:8]}_{batch_no}{merged_path.suffix}")
                 _write_csv(tmp_path, chunk_rows, FIELDNAMES)
                 log(f"[firefly] Batch {batch_no}: {tmp_path.name} ({batch_size} rows)")
                 started = time.perf_counter()
@@ -727,6 +727,19 @@ class JobRunner:
                     pass
 
                 all_successful.extend(successful_batch_indices)
+
+            if auto_export and all_successful and not self._is_ollama_cancelled(job_id):
+                try:
+                    new_export_id = self.start_firefly_export(
+                        job_id=job_id,
+                        options={
+                            "auto_from_ollama": True,
+                            "row_indices": sorted(set(all_successful)),
+                        },
+                    )
+                    log(f"Queued auto-export {new_export_id} for {len(set(all_successful))} categorized row(s).")
+                except Exception as exc:
+                    log(f"Failed to queue auto-export: {exc}")
         finally:
             self._clear_ollama_cancelled(job_id)
 
