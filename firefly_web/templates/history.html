@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Jobs{% endblock %}
+{% block page_script %}jobs{% endblock %}
+{% block content %}
+<section id="history-workspace" class="workspace">
+  <section class="panel">
+    <div class="row-between">
+      <h2>Jobs</h2>
+      <div class="small-controls">
+        <button type="button" id="refresh-history-tab">Refresh</button>
+        <button type="button" id="history-columns-btn" class="secondary-btn">⚙ Columns</button>
+      </div>
+    </div>
+    <p class="hint">Open a previous job to inspect status, balances, transactions, and export details in Merge.</p>
+    <div class="table-wrap">
+      <table id="history-table-tab" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="job_id" data-sort-key="id" class="th-sortable">Job ID</th>
+            <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+            <th data-col="created" data-sort-key="created" class="th-sortable">Created</th>
+            <th data-col="merged" data-sort-key="merged" class="th-sortable">Merged</th>
+            <th data-col="duplicates" data-sort-key="duplicates" class="th-sortable">Duplicates</th>
+            <th data-col="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="history-body-tab"></tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="job-shell" data-job-id="{{ job_id }}">
+  <div id="pipeline-rail" class="pipeline-rail" aria-label="Job pipeline"></div>
+  <nav class="job-subnav">
+    <a class="{% if subnav_active == 'status' %}active{% endif %}" href="/jobs/{{ job_id }}">Status</a>
+    <a class="{% if subnav_active == 'review' %}active{% endif %}" href="/jobs/{{ job_id }}/review">Review</a>
+    <a class="{% if subnav_active == 'transactions' %}active{% endif %}" href="/jobs/{{ job_id }}/transactions">Transactions</a>
+    <a class="{% if subnav_active == 'balances' %}active{% endif %}" href="/jobs/{{ job_id }}/balances">Balances</a>
+    <a class="{% if subnav_active == 'export' %}active{% endif %}" href="/jobs/{{ job_id }}/export">Export</a>
+  </nav>
+  {% block job_content %}{% endblock %}
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base_job.html" %}
+{% block title %}Job Status{% endblock %}
+{% block page_script %}status{% endblock %}
+{% block job_content %}
+<section class="panel subpanel" id="job-panel">
+  <h2>Job Status</h2>
+  <p class="hint" id="job-missing" hidden>This job does not exist. <a href="/history">Back to jobs</a>.</p>
+  <div id="job-content">
+    <div class="status-grid">
+      <div><span class="label">Job ID:</span> <code id="job-id"></code></div>
+      <div><span class="label">Status:</span> <strong id="job-status">-</strong></div>
+      <div><span class="label">Created:</span> <span id="job-created">-</span></div>
+      <div><span class="label">Updated:</span> <span id="job-updated">-</span></div>
+    </div>
+
+    <div id="stats"></div>
+    <div id="artifacts"></div>
+    <pre id="logs"></pre>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base_job.html" %}
+{% block title %}Balances{% endblock %}
+{% block page_script %}balances{% endblock %}
+{% block job_content %}
+<section class="panel subpanel" id="analytics-panel">
+  <h2>Balances</h2>
+  <div id="balances-content">
+    <p class="hint">Running balance per source account based on merged transactions.</p>
+    <svg id="balance-chart" viewBox="0 0 980 320" preserveAspectRatio="none" aria-label="Balance chart"></svg>
+    <div id="balance-legend" class="legend"></div>
+  </div>
+</section>
+{% endblock %}

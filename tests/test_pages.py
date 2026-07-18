@@ -24,7 +24,6 @@ PAGES = ["/", "/history", "/config", "/jobs/j1", "/jobs/j1/review",
          "/jobs/j1/transactions", "/jobs/j1/balances", "/jobs/j1/export"]
 
 
-@pytest.mark.xfail(reason="templates land in Task 6", strict=False)
 @pytest.mark.parametrize("path", PAGES)
 def test_pages_render(client, path):
     assert client.get(path).status_code == 200
