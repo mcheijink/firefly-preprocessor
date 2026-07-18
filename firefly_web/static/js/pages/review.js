@@ -152,7 +152,7 @@ function updateDuplicateReviewGateUI() {
   }
   dupGateSummary.textContent =
     `Duplicate review required before categorization/export. Remaining suspected duplicates: ${pending}. ` +
-    `Review rows below, restore any false positives, then click Confirm Review.`;
+    `Review rows below, restore any false positives, then click Confirm review.`;
 }
 
 function populateDuplicateSourceFileFilter(files, keepCurrent = true) {

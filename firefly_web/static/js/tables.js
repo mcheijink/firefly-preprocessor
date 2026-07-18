@@ -91,7 +91,7 @@ export function renderCategorySelect(mergeRowIndex, currentCategory, categoryOpt
       }
       seen.add(token);
       const selected = token === normalizedCurrent ? " selected" : "";
-      const label = token || "(empty)";
+      const label = token || "—";
       return `<option value="${escapeHtml(token)}"${selected}>${escapeHtml(label)}</option>`;
     })
     .filter(Boolean);

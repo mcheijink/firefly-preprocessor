@@ -1,4 +1,4 @@
-import { apiGet, jobIdFromShell } from "../api.js";
+import { apiGet, jobIdFromShell, formatTimestamp } from "../api.js";
 import { startPoll } from "../polling.js";
 import { mountStepper } from "../stepper.js";
 import { escapeHtml } from "../tables.js";
@@ -39,8 +39,14 @@ function renderJob(job) {
 
   if (jobIdEl) jobIdEl.textContent = job.id || "";
   if (jobStatusEl) jobStatusEl.innerHTML = renderStatusChip(job.status);
-  if (jobCreatedEl) jobCreatedEl.textContent = job.created_at || "-";
-  if (jobUpdatedEl) jobUpdatedEl.textContent = job.updated_at || "-";
+  if (jobCreatedEl) {
+    jobCreatedEl.textContent = job.created_at ? formatTimestamp(job.created_at) : "-";
+    jobCreatedEl.title = job.created_at || "";
+  }
+  if (jobUpdatedEl) {
+    jobUpdatedEl.textContent = job.updated_at ? formatTimestamp(job.updated_at) : "-";
+    jobUpdatedEl.title = job.updated_at || "";
+  }
 
   const stats = job.stats || {};
   if (statsEl) {

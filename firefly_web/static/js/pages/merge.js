@@ -1,4 +1,4 @@
-import { apiUpload, apiGet } from "../api.js";
+import { apiUpload, apiGet, formatTimestamp } from "../api.js";
 import { escapeHtml } from "../tables.js";
 
 const form = document.getElementById("job-form");
@@ -122,7 +122,7 @@ async function loadRecentJobs() {
       <div class="recent-job-row">
         <a href="/jobs/${escapeHtml(job.id)}" class="mono">${escapeHtml(String(job.id).slice(0, 12))}</a>
         <span class="status-chip ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
-        <span class="hint">${escapeHtml(job.created_at || "")}</span>
+        <span class="hint" title="${escapeHtml(job.created_at || "")}">${escapeHtml(formatTimestamp(job.created_at))}</span>
         <span class="hint">${escapeHtml(String(job.stats?.merged_rows ?? "-"))} merged</span>
       </div>`
       )

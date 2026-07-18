@@ -168,3 +168,17 @@ button.danger-btn { background: var(--danger); border-color: var(--danger); colo
 .tx-toolbar-group.tx-grow { flex: 1 1 auto; }
 .tx-toolbar-row.tx-filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .5rem; }
 .tx-toolbar-row.category-actions { margin-top: .25rem; border-top: 1px solid var(--rule); padding-top: .5rem; }
+
+/* ---- Job / export logs (Task: UI polish fix 1) ------------------------- */
+/* Unwrapped log lines previously stretched the page to ~3000px; wrap them
+   and cap the box height instead, scrolling internally. */
+#logs,
+#export-logs {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 26rem;
+  font-family: var(--font-num);
+  font-size: .8rem;
+}

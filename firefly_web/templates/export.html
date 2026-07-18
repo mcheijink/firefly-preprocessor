@@ -13,12 +13,12 @@
     </div>
 
     <div class="small-controls">
-      <button type="button" id="start-firefly-export">Start Export</button>
-      <button type="button" id="stop-firefly-export" class="secondary-btn">Stop Export Queue</button>
-      <button type="button" id="delete-firefly-export" class="danger-btn">Delete Export Queues</button>
+      <button type="button" id="start-firefly-export">Start export</button>
+      <button type="button" id="stop-firefly-export" class="secondary-btn">Stop export queue</button>
+      <button type="button" id="delete-firefly-export" class="danger-btn">Delete export queues</button>
       <button type="button" id="exports-columns-btn" class="secondary-btn">⚙ Columns</button>
     </div>
-    <p id="export-summary" class="hint">Select a completed merge job first.</p>
+    <p id="export-summary" class="hint">Exports run for this job using the settings from Configuration.</p>
 
     <div class="table-wrap">
       <table id="exports-table" class="responsive-table">
@@ -38,8 +38,8 @@
       </table>
     </div>
 
-    <h3>Export Logs</h3>
-    <pre id="export-logs"></pre>
+    <h3 id="export-logs-heading" hidden>Export Logs</h3>
+    <pre id="export-logs" hidden></pre>
 
     <h3>Export Queue / Audit</h3>
     <div class="small-controls">
@@ -69,7 +69,7 @@
         <option value="asc" selected>Ascending</option>
         <option value="desc">Descending</option>
       </select>
-      <button type="button" id="refresh-export-events">Refresh Queue</button>
+      <button type="button" id="refresh-export-events">Refresh queue</button>
       <button type="button" id="export-events-columns-btn" class="secondary-btn">⚙ Columns</button>
     </div>
     <p id="export-events-metrics" class="hint">No export queue metrics yet.</p>

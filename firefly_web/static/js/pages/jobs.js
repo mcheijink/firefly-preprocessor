@@ -1,4 +1,4 @@
-import { apiGet, apiSend } from "../api.js";
+import { apiGet, apiSend, formatTimestamp } from "../api.js";
 import { escapeHtml, TableColumnManager } from "../tables.js";
 
 const historyBody = document.getElementById("history-body-tab");
@@ -38,7 +38,7 @@ function renderHistoryRows(jobs) {
         <tr>
           <td data-col="job_id" data-label="Job ID"><code>${escapeHtml(job.id)}</code></td>
           <td data-col="status" data-label="Status">${renderStatusChip(job.status)}</td>
-          <td data-col="created" data-label="Created">${escapeHtml(job.created_at || "")}</td>
+          <td data-col="created" data-label="Created" title="${escapeHtml(job.created_at || "")}">${escapeHtml(formatTimestamp(job.created_at))}</td>
           <td data-col="merged" data-label="Merged">${escapeHtml(String(stats.merged_rows ?? 0))}</td>
           <td data-col="duplicates" data-label="Duplicates">${escapeHtml(String(stats.duplicate_rows ?? 0))}</td>
           <td data-col="actions" data-label="Actions" class="actions-cell">

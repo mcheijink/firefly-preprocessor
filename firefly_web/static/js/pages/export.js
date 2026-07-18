@@ -15,6 +15,7 @@ const refreshExportStatusBtn = document.getElementById("refresh-export-status");
 const exportsColumnsBtn = document.getElementById("exports-columns-btn");
 const exportSummaryEl = document.getElementById("export-summary");
 const exportBody = document.getElementById("exports-body");
+const exportLogsHeadingEl = document.getElementById("export-logs-heading");
 const exportLogsEl = document.getElementById("export-logs");
 
 const refreshExportEventsBtn = document.getElementById("refresh-export-events");
@@ -357,15 +358,22 @@ function queueProgressLine(model) {
   );
 }
 
+// FIX 2b: rather than printing "No export queue metrics yet." (redundant
+// noise alongside the exports table's own empty state and the events
+// table's "No export selected."/"No export queue events yet." rows), the
+// metrics line is hidden entirely until there's an active export with a
+// nonzero queue to report on.
 function updateExportMetrics(metrics) {
   if (!exportEventsMetricsEl) {
     return;
   }
   const model = buildQueueProgressModel(metrics);
   if (model.total <= 0) {
-    exportEventsMetricsEl.textContent = "No export queue metrics yet.";
+    exportEventsMetricsEl.hidden = true;
+    exportEventsMetricsEl.textContent = "";
     return;
   }
+  exportEventsMetricsEl.hidden = false;
   exportEventsMetricsEl.textContent = queueProgressLine(model);
 }
 
@@ -509,6 +517,7 @@ function updateExportEventsPagination() {
 
 function updateExportEventsSummary() {
   if (exportEventsSummaryEl) {
+    exportEventsSummaryEl.hidden = false;
     const totalPages = getExportEventsTotalPages();
     const start = exportEventsTotal ? (exportEventsPage - 1) * exportEventsPageSize + 1 : 0;
     const end = Math.min(exportEventsPage * exportEventsPageSize, exportEventsTotal);
@@ -521,9 +530,12 @@ function updateExportEventsSummary() {
 async function loadFireflyExportEvents(resetPage = false) {
   if (!jobId || !activeExportId) {
     exportEventsTotal = 0;
+    // FIX 2b: the "No export selected." row inside the table is the single
+    // empty-state indicator for this section; the metrics/summary hint
+    // lines above it are hidden rather than echoing a redundant message.
     if (exportEventsBody) exportEventsBody.innerHTML = `<tr><td colspan="10">No export selected.</td></tr>`;
-    if (exportEventsSummaryEl) exportEventsSummaryEl.textContent = "Select an export to inspect queue details.";
-    if (exportEventsMetricsEl) exportEventsMetricsEl.textContent = "No export queue metrics yet.";
+    if (exportEventsSummaryEl) exportEventsSummaryEl.hidden = true;
+    updateExportMetrics({});
     updateExportEventsPagination();
     return;
   }
@@ -664,11 +676,20 @@ function renderFireflyExportRows(items) {
   });
 }
 
+// FIX 2c: the "Export Logs" heading and its <pre> are hidden together
+// whenever there's no log text to show (no item selected, or the item has
+// no logs yet), rather than leaving a bare heading over an empty box.
+function setExportLogsVisible(visible) {
+  if (exportLogsHeadingEl) exportLogsHeadingEl.hidden = !visible;
+  if (exportLogsEl) exportLogsEl.hidden = !visible;
+}
+
 function renderFireflyExportDetail(item) {
   if (!item) {
     if (exportLogsEl) {
       exportLogsEl.textContent = "";
     }
+    setExportLogsVisible(false);
     return;
   }
   const stats = item.stats || {};
@@ -680,8 +701,10 @@ function renderFireflyExportDetail(item) {
       `${message || ""}`.trim();
   }
   if (exportLogsEl) {
+    const hasLogs = !!String(item.logs || "").trim();
     exportLogsEl.textContent = item.logs || "";
     exportLogsEl.scrollTop = exportLogsEl.scrollHeight;
+    setExportLogsVisible(hasLogs);
   }
 }
 
@@ -741,7 +764,7 @@ async function loadFireflyExports(selectLatest = false) {
       startFireflyExportBtn.disabled = true;
     }
     if (exportSummaryEl) {
-      exportSummaryEl.textContent = "Select a completed merge job first.";
+      exportSummaryEl.textContent = "No job selected.";
     }
     if (exportBody) {
       exportBody.innerHTML = `<tr><td colspan="8">No job selected.</td></tr>`;
@@ -749,6 +772,7 @@ async function loadFireflyExports(selectLatest = false) {
     if (exportLogsEl) {
       exportLogsEl.textContent = "";
     }
+    setExportLogsVisible(false);
     activeExportId = "";
     activeExportEventId = 0;
     exportEventsTotal = 0;
@@ -756,11 +780,9 @@ async function loadFireflyExports(selectLatest = false) {
       exportEventsBody.innerHTML = `<tr><td colspan="10">No export selected.</td></tr>`;
     }
     if (exportEventsSummaryEl) {
-      exportEventsSummaryEl.textContent = "Select an export to inspect queue details.";
+      exportEventsSummaryEl.hidden = true;
     }
-    if (exportEventsMetricsEl) {
-      exportEventsMetricsEl.textContent = "No export queue metrics yet.";
-    }
+    updateExportMetrics({});
     updateExportEventsPagination();
     stopExportPolling();
     if (stopFireflyExportBtn) stopFireflyExportBtn.disabled = true;
@@ -781,9 +803,11 @@ async function loadFireflyExports(selectLatest = false) {
     activeExportId = "";
     activeExportEventId = 0;
     exportEventsTotal = 0;
+    // FIX 2b: the exports table above already shows "No exports yet for
+    // this merge job." -- don't repeat it here.
     if (exportEventsBody) exportEventsBody.innerHTML = `<tr><td colspan="10">No export selected.</td></tr>`;
-    if (exportEventsSummaryEl) exportEventsSummaryEl.textContent = "No exports yet for this merge job.";
-    if (exportEventsMetricsEl) exportEventsMetricsEl.textContent = "No export queue metrics yet.";
+    if (exportEventsSummaryEl) exportEventsSummaryEl.hidden = true;
+    updateExportMetrics({});
     updateExportEventsPagination();
     renderFireflyExportDetail(null);
     if (stopFireflyExportBtn) stopFireflyExportBtn.disabled = true;
