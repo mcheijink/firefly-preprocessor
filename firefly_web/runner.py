@@ -592,6 +592,16 @@ class JobRunner:
 
         return {"queued": len(queued_tasks), "skipped": skipped, "total_rows": len(rows), "export_id": ""}
 
+    def _apply_categories_under_lock(self, job_id: str, merged_path: Path, assignments: Dict[int, str]) -> None:
+        if not assignments:
+            return
+        with get_job_lock(job_id):
+            rows, fieldnames = _read_csv(merged_path)
+            for row_index, category in assignments.items():
+                if 1 <= row_index <= len(rows):
+                    rows[row_index - 1]["category"] = category
+            _write_csv(merged_path, rows, fieldnames)
+
     def _run_ollama_categorization(
         self,
         job_id: str,
@@ -622,6 +632,8 @@ class JobRunner:
         if auto_export:
             log("Auto-export enabled: categorized batches will be queued for export immediately.")
 
+        all_successful: List[int] = []
+
         try:
             for task_batch in _chunk_items(queued_tasks, pipeline_batch_size):
                 if self._is_ollama_cancelled(job_id):
@@ -649,6 +661,7 @@ class JobRunner:
                 prompt_text = ""
                 assigned_categories: List[str] = []
                 successful_batch_indices: List[int] = []
+                batch_assignments: Dict[int, str] = {}
 
                 try:
                     if len(batch_rows) == 1:
@@ -684,10 +697,10 @@ class JobRunner:
                             assigned_categories = assigned_categories[: len(batch_rows)]
 
                     for idx, task in enumerate(valid_tasks):
-                        row_idx = int(task["row_index"]) - 1
+                        row_idx = int(task["row_index"])
                         category = assigned_categories[idx] if idx < len(assigned_categories) else "Other"
-                        rows[row_idx]["category"] = category
-                        successful_batch_indices.append(int(task["row_index"]))
+                        batch_assignments[row_idx] = category
+                        successful_batch_indices.append(row_idx)
                         self.store.complete_ollama_event(
                             int(task["event_id"]),
                             response_text=response_text,
@@ -708,36 +721,14 @@ class JobRunner:
                     continue
 
                 try:
-                    with get_job_lock(job_id):
-                        _write_csv(merged_path, rows, fieldnames)
+                    self._apply_categories_under_lock(job_id, merged_path, batch_assignments)
                 except Exception:
                     # Keep processing queue even if persistence fails once.
                     pass
 
-                if auto_export:
-                    try:
-                        new_export_id = self.start_firefly_export(
-                            job_id=job_id,
-                            options={
-                                "auto_from_ollama": True,
-                                "batch_mode": True,
-                                "row_indices": sorted(set(successful_batch_indices)),
-                            },
-                        )
-                        log(
-                            f"Queued auto-export {new_export_id} for {len(successful_batch_indices)} categorized row(s)."
-                        )
-                    except Exception as exc:
-                        log(f"Failed to queue auto-export batch: {exc}")
+                all_successful.extend(successful_batch_indices)
         finally:
             self._clear_ollama_cancelled(job_id)
-
-        try:
-            with get_job_lock(job_id):
-                _write_csv(merged_path, rows, fieldnames)
-        except Exception:
-            # Event states already captured. CSV write failures are intentionally silent here.
-            pass
 
     def _firefly_overrides_from_env(self) -> List[str]:
         cfg = self.store.get_system_config()
