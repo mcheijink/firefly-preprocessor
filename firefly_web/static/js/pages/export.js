@@ -848,12 +848,19 @@ if (deleteFireflyExportBtn) {
     if (!jobId) {
       return;
     }
-    if (!window.confirm("Delete all export queues for this job?")) {
+    const statusGroup = String((exportEventsStatusGroupInput && exportEventsStatusGroupInput.value) || "all");
+    const label =
+      statusGroup === "queue"
+        ? "queued/running"
+        : statusGroup === "completed"
+          ? "completed/failed"
+          : "all";
+    if (!window.confirm(`Delete ${label} export queue(s) for this job (${statusGroup})?`)) {
       return;
     }
     deleteFireflyExportBtn.disabled = true;
     try {
-      const result = await deleteFireflyExports(jobId, "all");
+      const result = await deleteFireflyExports(jobId, statusGroup);
       activeExportId = "";
       activeExportEventId = 0;
       await loadFireflyExports(true);
