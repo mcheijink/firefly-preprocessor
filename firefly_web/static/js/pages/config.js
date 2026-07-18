@@ -1,3 +1,5 @@
+import { apiGet, apiSend, apiUpload } from "../api.js";
+
 const form = document.getElementById("config-form");
 const statusEl = document.getElementById("config-status");
 const exportYamlBtn = document.getElementById("export-config-yaml");
@@ -150,12 +152,10 @@ function summarizeVerification(verification) {
   return `Verified importer JSON (${bytes} bytes, ${count} top-level keys, sha256 ${shortHash}) at ${path}`;
 }
 
+// GET/POST/upload plumbing rewired onto ../api.js (apiGet/apiSend/apiUpload)
+// in place of the SPA's hand-rolled fetch() + response.ok/json() handling.
 async function loadConfig() {
-  const response = await fetch("/api/config");
-  if (!response.ok) {
-    throw new Error("Failed to load config.");
-  }
-  const config = await response.json();
+  const config = await apiGet("/api/config");
   const firefly = config.firefly || {};
   const importer = config.importer || {};
   const ollama = config.ollama || {};
@@ -218,15 +218,7 @@ async function saveConfig(event) {
     },
   };
 
-  const response = await fetch("/api/config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const body = await response.json();
-    throw new Error(body.detail || "Failed to save config.");
-  }
+  await apiSend("/api/config", "POST", payload);
   setStatus("Configuration saved.");
 }
 
@@ -243,14 +235,7 @@ async function importConfigFile() {
   setStatus("Importing configuration...");
   const formData = new FormData();
   formData.append("config_file", file);
-  const response = await fetch("/api/config/import", {
-    method: "POST",
-    body: formData,
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail || "Failed to import config.");
-  }
+  await apiUpload("/api/config/import", formData);
   await loadConfig();
   setStatus("Configuration imported.");
 }
@@ -259,15 +244,7 @@ async function writeConfigFile() {
   const path = (configWritePathInput && configWritePathInput.value) || "config/system_config.yml";
   const format = (configWriteFormatInput && configWriteFormatInput.value) || "yaml";
   setStatus("Writing config file on server...");
-  const response = await fetch("/api/config/write-file", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, format }),
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail || "Failed to write config file.");
-  }
+  const payload = await apiSend("/api/config/write-file", "POST", { path, format });
   setStatus(`Config written to ${payload.path}`);
 }
 
@@ -279,14 +256,7 @@ async function uploadImporterJson() {
   setStatus("Uploading importer JSON...");
   const formData = new FormData();
   formData.append("importer_file", file);
-  const response = await fetch("/api/config/importer-json", {
-    method: "POST",
-    body: formData,
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail || "Failed to upload importer JSON.");
-  }
+  const payload = await apiUpload("/api/config/importer-json", formData);
   fields.importer_json_path.value = payload.path || "";
   setStatus(summarizeVerification(payload.verification));
 }
@@ -298,26 +268,14 @@ async function verifyImporterJson() {
     params.set("path", configuredPath);
   }
   const query = params.toString();
-  const response = await fetch(`/api/config/importer-json/verify${query ? `?${query}` : ""}`);
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail || "Failed to verify importer JSON.");
-  }
+  const payload = await apiGet(`/api/config/importer-json/verify${query ? `?${query}` : ""}`);
   setStatus(summarizeVerification(payload.verification || {}));
 }
 
 async function resetAllSettings() {
   const clearFiles = window.confirm("Also delete uploaded importer JSON files?");
   setStatus("Resetting settings...");
-  const response = await fetch("/api/config/reset", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clear_uploaded_importer_files: clearFiles }),
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail || "Failed to reset settings.");
-  }
+  const payload = await apiSend("/api/config/reset", "POST", { clear_uploaded_importer_files: clearFiles });
   await loadConfig();
   if (importerJsonUploadInput) {
     importerJsonUploadInput.value = "";
@@ -398,4 +356,15 @@ if (resetConfigBtn) {
 
 loadConfig().catch((error) => {
   setStatus(error.message);
+});
+
+// Reveal-toggle wiring for the password-style firefly_secret/firefly_token
+// inputs (brief Task 14, Step 14.1).
+document.querySelectorAll(".reveal-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.getElementById(btn.dataset.reveal);
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    btn.textContent = showing ? "Show" : "Hide";
+  });
 });
