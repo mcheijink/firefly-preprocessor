@@ -1012,7 +1012,9 @@ Remove any `<script>` tag references to old paths in `config.html` (base templat
 - [ ] **Step 14.3:** Run `python -m pytest tests/ -q` → PASS. Click through all 8 pages on dev server; console clean everywhere.
 - [ ] **Step 14.4:** Commit: `feat: config page module; delete SPA (app.js, index.html)`
 
----### Task 15: E2E rewrite, race regression in CI, capture_ui update
+---
+
+### Task 15: E2E rewrite, race regression in CI, capture_ui update
 
 **Files:**
 - Rewrite: `tools/test_e2e.py`
