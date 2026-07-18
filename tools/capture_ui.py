@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Capture deterministic screenshots of the Firefly Merge web UI.
+"""Capture deterministic screenshots of the Firefly Merge web UI (MPA).
 
 Usage:
-  python tools/capture_ui.py --base-url http://localhost:8080 --out-dir output_check/ui
+  python tools/capture_ui.py --base-url http://localhost:8092 --out-dir output_check/ui
+  python tools/capture_ui.py --base-url http://localhost:8092 --out-dir output_check/ui --job-id <id>
 
 Requires:
   pip install playwright
@@ -12,61 +13,29 @@ Requires:
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, List, Tuple
 
+# Pure resource-404 console errors are benign (e.g. a favicon or a job page
+# fetched before any job exists) and should not fail the sweep. Page-level JS
+# errors must still fail it.
+_RESOURCE_404_RE = re.compile(r"Failed to load resource.*404", re.IGNORECASE)
 
-def _safe_click(page, selector: str, timeout_ms: int = 2000) -> bool:
-    loc = page.locator(selector)
-    if loc.count() == 0:
-        return False
-    try:
-        loc.first.click(timeout=timeout_ms)
-        page.wait_for_timeout(150)
-        return True
-    except Exception:
-        return False
+PAGES: List[Tuple[str, str]] = [
+    ("/", "merge"),
+    ("/history", "jobs"),
+    ("/config", "config"),
+]
 
-
-def _capture_merge_subtabs(page, out_dir: Path, prefix: str) -> None:
-    subtabs = [
-        ("merge-form-panel", "merge_form"),
-        ("job-panel", "job_status"),
-        ("duplicates-panel", "duplicate_review"),
-        ("analytics-panel", "balances"),
-        ("transactions-panel", "transactions"),
-        ("ollama-panel", "ollama"),
-        ("export-panel", "export"),
-    ]
-    for tab_key, label in subtabs:
-        _safe_click(page, f'button.subtab-btn[data-sub-tab="{tab_key}"]')
-        page.wait_for_timeout(250)
-        page.screenshot(path=str(out_dir / f"{prefix}_{label}.png"), full_page=True)
-
-
-def _capture_main_tabs(page, out_dir: Path, prefix: str) -> None:
-    # Merge workspace and its sub-tabs
-    _safe_click(page, 'button.main-top-tab[data-main-tab="merge-workspace"]')
-    page.wait_for_timeout(200)
-    _capture_merge_subtabs(page, out_dir, f"{prefix}_tab_merge")
-
-    # History top tab
-    _safe_click(page, 'button.main-top-tab[data-main-tab="history-workspace"]')
-    page.wait_for_timeout(200)
-    page.screenshot(path=str(out_dir / f"{prefix}_tab_history.png"), full_page=True)
-
-
-def _capture_profile(context, base_url: str, out_dir: Path, profile_name: str) -> None:
-    page = context.new_page()
-    page.goto(f"{base_url}/", wait_until="domcontentloaded")
-    page.wait_for_timeout(500)
-    _capture_main_tabs(page, out_dir, profile_name)
-
-    page.goto(f"{base_url}/config", wait_until="domcontentloaded")
-    page.wait_for_timeout(300)
-    page.screenshot(path=str(out_dir / f"{profile_name}_tab_configuration.png"), full_page=True)
-    page.close()
+JOB_PAGES: List[Tuple[str, str]] = [
+    ("", "status"),
+    ("/review", "review"),
+    ("/transactions", "transactions"),
+    ("/balances", "balances"),
+    ("/export", "export"),
+]
 
 
 def _profiles() -> Iterable[Tuple[str, int, int]]:
@@ -76,14 +45,47 @@ def _profiles() -> Iterable[Tuple[str, int, int]]:
     ]
 
 
+def _is_benign_console_error(text: str) -> bool:
+    return bool(_RESOURCE_404_RE.search(text))
+
+
+def _capture_profile(
+    context,
+    base_url: str,
+    out_dir: Path,
+    profile_name: str,
+    pages: List[Tuple[str, str]],
+    console_errors: List[str],
+) -> None:
+    page = context.new_page()
+
+    def on_console(msg) -> None:
+        if msg.type == "error" and not _is_benign_console_error(msg.text):
+            console_errors.append(f"[{profile_name}] {page.url}: {msg.text}")
+
+    page.on("console", on_console)
+
+    for path, label in pages:
+        page.goto(f"{base_url}{path}", wait_until="domcontentloaded")
+        page.wait_for_timeout(400)
+        page.screenshot(path=str(out_dir / f"{profile_name}_{label}.png"), full_page=True)
+
+    page.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Capture Firefly Merge web UI screenshots.")
     parser.add_argument("--base-url", default="http://localhost:8080", help="Base URL where app is running.")
     parser.add_argument("--out-dir", default="output_check/ui", help="Directory where screenshots are written.")
+    parser.add_argument("--job-id", default=None, help="If set, also capture the job detail pages for this job.")
     args = parser.parse_args(argv)
 
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    pages = list(PAGES)
+    if args.job_id:
+        pages += [(f"/jobs/{args.job_id}{sub}", label) for sub, label in JOB_PAGES]
 
     try:
         from playwright.sync_api import sync_playwright
@@ -93,17 +95,26 @@ def main(argv: list[str] | None = None) -> int:
         print("  python -m playwright install chromium", file=sys.stderr)
         return 2
 
+    console_errors: List[str] = []
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         for name, width, height in _profiles():
             context = browser.new_context(viewport={"width": width, "height": height})
             try:
-                _capture_profile(context, args.base_url, out_dir, name)
+                _capture_profile(context, args.base_url, out_dir, name, pages, console_errors)
             finally:
                 context.close()
         browser.close()
 
     print(f"Saved screenshots to: {out_dir}")
+
+    if console_errors:
+        print("Console errors detected:", file=sys.stderr)
+        for err in console_errors:
+            print(f"  {err}", file=sys.stderr)
+        return 1
+
     return 0
 
 
