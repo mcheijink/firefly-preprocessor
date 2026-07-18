@@ -1,9 +1,10 @@
 name: Build and push to GHCR
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +13,8 @@ permissions:
 
 jobs:
   build-and-push:
+    # Build only after the Tests workflow succeeded on main (or on manual dispatch).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
