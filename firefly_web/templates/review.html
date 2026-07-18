@@ -1,0 +1,85 @@
+{% extends "base_job.html" %}
+{% block title %}Review{% endblock %}
+{% block page_script %}review{% endblock %}
+{% block job_content %}
+<section class="panel subpanel" id="duplicates-panel">
+  <h2>Duplicate Review</h2>
+  <div id="duplicates-content">
+    <p id="duplicate-review-gate" class="hint">No duplicate review data yet.</p>
+    <div class="tx-toolbar">
+      <div class="tx-toolbar-row">
+        <div class="tx-toolbar-group tx-grow">
+          <input id="dup-search" type="text" placeholder="Search duplicate reason, external id, description, account...">
+        </div>
+        <button type="button" id="apply-dup-filters">Apply</button>
+        <div class="small-controls">
+          <button type="button" id="refresh-dup-review">Refresh</button>
+          <button type="button" id="select-visible-dup">Select visible</button>
+          <button type="button" id="clear-dup-selection">Clear selection</button>
+          <button type="button" id="dup-columns-btn" class="secondary-btn">⚙ Columns</button>
+          <label for="dup-page-size">Page size</label>
+          <select id="dup-page-size">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+      </div>
+      <div class="tx-toolbar-row tx-filters-grid">
+        <select id="dup-source-file-filter">
+          <option value="">All source files</option>
+        </select>
+        <select id="dup-sort-by">
+          <option value="date" selected>Sort: Dropped date</option>
+          <option value="amount">Sort: Dropped amount</option>
+          <option value="description">Sort: Dropped description</option>
+          <option value="reason">Sort: Reason</option>
+          <option value="reasoning">Sort: Reasoning</option>
+          <option value="source_file">Sort: Source file</option>
+          <option value="kept_date">Sort: Kept date</option>
+          <option value="kept_amount">Sort: Kept amount</option>
+        </select>
+        <select id="dup-sort-dir">
+          <option value="asc" selected>Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+        <button type="button" id="restore-dup-selected">Restore selected to merged</button>
+        <button type="button" id="confirm-dup-review" class="secondary-btn">Confirm review</button>
+      </div>
+      <div class="tx-toolbar-row">
+        <div id="dup-page-summary" class="hint"></div>
+        <div class="small-controls pagination-controls">
+          <button type="button" id="dup-page-first" class="secondary-btn">&laquo;</button>
+          <button type="button" id="dup-page-prev" class="secondary-btn">&lsaquo;</button>
+          <div id="dup-page-buttons" class="page-buttons"></div>
+          <button type="button" id="dup-page-next" class="secondary-btn">&rsaquo;</button>
+          <button type="button" id="dup-page-last" class="secondary-btn">&raquo;</button>
+        </div>
+      </div>
+    </div>
+    <div id="dup-summary" class="hint"></div>
+    <div class="table-wrap">
+      <table id="duplicates-table" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="select"><input type="checkbox" id="toggle-all-dup-visible"></th>
+            <th data-col="dropped_id">Dropped ID</th>
+            <th data-col="reason" data-sort-key="reason" class="th-sortable">Reason</th>
+            <th data-col="reasoning" data-sort-key="reasoning" class="th-sortable">Reasoning</th>
+            <th data-col="dropped_date" data-sort-key="date" class="th-sortable">Dropped Date</th>
+            <th data-col="dropped_amount" data-sort-key="amount" class="th-sortable">Dropped Amount</th>
+            <th data-col="dropped_description" data-sort-key="description" class="th-sortable">Dropped Description</th>
+            <th data-col="dropped_source" data-sort-key="source_file" class="th-sortable">Dropped Source</th>
+            <th data-col="kept_id">Kept ID</th>
+            <th data-col="kept_date" data-sort-key="kept_date" class="th-sortable">Kept Date</th>
+            <th data-col="kept_amount" data-sort-key="kept_amount" class="th-sortable">Kept Amount</th>
+            <th data-col="kept_description">Kept Description</th>
+            <th data-col="details">Details</th>
+          </tr>
+        </thead>
+        <tbody id="duplicates-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

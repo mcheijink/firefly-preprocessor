@@ -1,183 +1,166 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Firefly Merge Configuration</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="topbar">
-    <nav class="topnav">
-      <a class="nav-link" href="/#merge">Merge</a>
-      <a class="nav-link" href="/#history">History</a>
-      <a class="nav-link" href="/#ollama">Ollama</a>
-      <a class="nav-link active" href="/config">Configuration</a>
-    </nav>
-  </header>
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block page_script %}config{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>System Configuration</h1>
+  <p class="subtitle">Configure Firefly-III, Firefly CSV importer profile, and Ollama categorization.</p>
 
-  <main class="page">
-    <section class="panel">
-      <h1>System Configuration</h1>
-      <p class="subtitle">Configure Firefly-III, Firefly CSV importer profile, and Ollama categorization.</p>
+  <form id="config-form">
+    <details class="config-group" open>
+      <summary>Firefly-III</summary>
+      <div class="config-group-body">
+        <label for="firefly_url">Autoupload URL</label>
+        <input id="firefly_url" type="text" placeholder="https://.../autoupload">
 
-      <form id="config-form">
-        <details class="config-group" open>
-          <summary>Firefly-III</summary>
-          <div class="config-group-body">
-            <label for="firefly_url">Autoupload URL</label>
-            <input id="firefly_url" type="text" placeholder="https://.../autoupload">
+        <label for="firefly_secret">Secret</label>
+        <input id="firefly_secret" type="password" placeholder="optional">
+        <button type="button" class="reveal-btn" data-reveal="firefly_secret">Show</button>
 
-            <label for="firefly_secret">Secret</label>
-            <input id="firefly_secret" type="text" placeholder="optional">
+        <label for="firefly_token">Personal Access Token</label>
+        <input id="firefly_token" type="password" placeholder="Bearer token">
+        <button type="button" class="reveal-btn" data-reveal="firefly_token">Show</button>
 
-            <label for="firefly_token">Personal Access Token</label>
-            <input id="firefly_token" type="password" placeholder="Bearer token">
-
-            <div class="grid-two">
-              <div>
-                <label for="firefly_timeout">Timeout (seconds)</label>
-                <input id="firefly_timeout" type="number" min="1" step="1">
-              </div>
-              <div>
-                <label for="firefly_batch_size">Batch Size</label>
-                <input id="firefly_batch_size" type="number" min="1" step="1">
-              </div>
-            </div>
-            <label class="inline-option">
-              <input id="firefly_adaptive_batch_enabled" type="checkbox">
-              Enable adaptive export batch sizing
-            </label>
-            <div class="grid-two">
-              <div>
-                <label for="firefly_adaptive_target_ratio">Adaptive Target Timeout Ratio</label>
-                <input id="firefly_adaptive_target_ratio" type="number" min="0.1" max="0.95" step="0.01">
-              </div>
-              <div>
-                <label for="firefly_adaptive_max_batch_size">Adaptive Max Batch Size</label>
-                <input id="firefly_adaptive_max_batch_size" type="number" min="1" step="1">
-              </div>
-            </div>
+        <div class="grid-two">
+          <div>
+            <label for="firefly_timeout">Timeout (seconds)</label>
+            <input id="firefly_timeout" type="number" min="1" step="1">
           </div>
-        </details>
-
-        <details class="config-group" open>
-          <summary>Firefly CSV Importer</summary>
-          <div class="config-group-body">
-            <label for="importer_json_path">Importer JSON Path (inside container)</label>
-            <input id="importer_json_path" type="text" placeholder="/data/config/import_config.json">
-            <p class="hint">Required for Firefly export. This file is sent as multipart field <code>json</code>.</p>
-            <label for="importer_json_upload">Upload Importer JSON</label>
-            <input id="importer_json_upload" type="file" accept=".json,application/json">
-            <div class="small-controls">
-              <button id="upload-importer-json-btn" type="button">Upload Importer JSON</button>
-              <button id="verify-importer-json-btn" type="button">Verify Importer JSON</button>
-            </div>
-            <p class="hint">Default app config path: <code>{{ default_config_path }}</code></p>
-          </div>
-        </details>
-
-        <details class="config-group">
-          <summary>Merge Parsing</summary>
-          <div class="config-group-body">
-            <label for="merge_own_accounts">Own Accounts (one per line)</label>
-            <textarea id="merge_own_accounts" rows="5" placeholder="NL92INGB...\nNL11INGB...\nM56638696"></textarea>
-
-            <label for="merge_account_aliases">Account Aliases (one per line: <code>account=alias</code>)</label>
-            <textarea id="merge_account_aliases" rows="6" placeholder="NL92INGB...=ING Shared\nM56638696=Savings Shared"></textarea>
-
-            <label for="merge_savings_accounts">Savings Accounts (one per line: <code>id=account|name</code>)</label>
-            <textarea id="merge_savings_accounts" rows="6" placeholder="M56638696=M56638696|Savings Shared\nR59575700=R59575700|Savings Marco"></textarea>
-            <p class="hint">These values are merged into each job config automatically.</p>
-          </div>
-        </details>
-
-        <details class="config-group">
-          <summary>Ollama</summary>
-          <div class="config-group-body">
-            <label class="inline-option">
-              <input id="ollama_enabled" type="checkbox">
-              Enable Ollama categorization
-            </label>
-
-            <label for="ollama_url">Ollama URL</label>
-            <input id="ollama_url" type="text" placeholder="http://localhost:11434">
-
-            <label for="ollama_model">Ollama Model</label>
-            <input id="ollama_model" type="text" placeholder="llama3.1:8b">
-
-            <label for="ollama_temperature">Temperature</label>
-            <input id="ollama_temperature" type="number" step="0.1" min="0" max="2">
-
-            <div class="grid-two">
-              <div>
-                <label for="ollama_batch_size">Ollama Batch Size</label>
-                <input id="ollama_batch_size" type="number" min="1" max="200" step="1">
-              </div>
-              <div>
-                <label class="inline-option">
-                  <input id="ollama_auto_export_after_categorize" type="checkbox">
-                  Auto-export after Ollama categorization
-                </label>
-              </div>
-            </div>
-
-            <label for="ollama_categories">Default Categories (comma-separated)</label>
-            <textarea id="ollama_categories" rows="4" placeholder="Groceries, Dining, Utilities"></textarea>
-
-            <label for="ollama_prompt_template">Ollama Prompt Template</label>
-            <textarea id="ollama_prompt_template" rows="8" placeholder="Use placeholders {categories_csv}, {categories_json}, {transaction_json}"></textarea>
-            <p class="hint">Placeholders: <code>{categories_csv}</code>, <code>{categories_json}</code>, <code>{transaction_json}</code>, <code>{transactions_json}</code></p>
-            <p class="hint">Execution model: one request per batch. Batch size controls how many transactions are sent per Ollama call.</p>
-          </div>
-        </details>
-
-        <button id="save-config" type="submit">Save Configuration</button>
-      </form>
-
-      <hr>
-
-      <details class="config-group" open>
-        <summary>Import / Export</summary>
-        <div class="config-group-body">
-          <div class="small-controls">
-            <button id="export-config-yaml" type="button">Export YAML</button>
-            <button id="export-config-json" type="button">Export JSON</button>
-          </div>
-
-          <label for="import-config-file">Import Config File</label>
-          <input id="import-config-file" type="file" accept=".json,.yml,.yaml,application/json,text/yaml,text/x-yaml">
-          <div class="small-controls">
-            <button id="import-config-btn" type="button">Import Config</button>
-          </div>
-
-          <label for="config-write-path">Write Config To Server File</label>
-          <input id="config-write-path" type="text" value="config/system_config.yml" placeholder="Relative to data dir, e.g. config/system_config.yml">
-          <div class="small-controls">
-            <select id="config-write-format">
-              <option value="yaml" selected>YAML</option>
-              <option value="json">JSON</option>
-            </select>
-            <button id="write-config-file-btn" type="button">Write File</button>
-          </div>
-          <p class="hint">Writes inside data directory: <code>{{ data_dir }}</code></p>
-        </div>
-      </details>
-
-      <details class="config-group danger-zone">
-        <summary>Danger Zone</summary>
-        <div class="config-group-body">
-          <p class="hint">Reset all saved settings to defaults. Optionally clears uploaded importer JSON files.</p>
-          <div class="small-controls">
-            <button id="reset-config-btn" type="button" class="danger-btn">Reset All Settings</button>
+          <div>
+            <label for="firefly_batch_size">Batch Size</label>
+            <input id="firefly_batch_size" type="number" min="1" step="1">
           </div>
         </div>
-      </details>
+        <label class="inline-option">
+          <input id="firefly_adaptive_batch_enabled" type="checkbox">
+          Enable adaptive export batch sizing
+        </label>
+        <div class="grid-two">
+          <div>
+            <label for="firefly_adaptive_target_ratio">Adaptive Target Timeout Ratio</label>
+            <input id="firefly_adaptive_target_ratio" type="number" min="0.1" max="0.95" step="0.01">
+          </div>
+          <div>
+            <label for="firefly_adaptive_max_batch_size">Adaptive Max Batch Size</label>
+            <input id="firefly_adaptive_max_batch_size" type="number" min="1" step="1">
+          </div>
+        </div>
+      </div>
+    </details>
 
-      <p id="config-status" class="hint"></p>
-    </section>
-  </main>
+    <details class="config-group" open>
+      <summary>Firefly CSV Importer</summary>
+      <div class="config-group-body">
+        <label for="importer_json_path">Importer JSON Path (inside container)</label>
+        <input id="importer_json_path" type="text" placeholder="/data/config/import_config.json">
+        <p class="hint">Required for Firefly export. This file is sent as multipart field <code>json</code>.</p>
+        <label for="importer_json_upload">Upload Importer JSON</label>
+        <input id="importer_json_upload" type="file" accept=".json,application/json">
+        <div class="small-controls">
+          <button id="upload-importer-json-btn" type="button">Upload importer JSON</button>
+          <button id="verify-importer-json-btn" type="button">Verify importer JSON</button>
+        </div>
+        <p class="hint">Default app config path: <code>{{ default_config_path }}</code></p>
+      </div>
+    </details>
 
-  <script src="/static/config.js"></script>
-</body>
-</html>
+    <details class="config-group">
+      <summary>Merge Parsing</summary>
+      <div class="config-group-body">
+        <label for="merge_own_accounts">Own Accounts (one per line)</label>
+        <textarea id="merge_own_accounts" rows="5" placeholder="NL92INGB...\nNL11INGB...\nM56638696"></textarea>
+
+        <label for="merge_account_aliases">Account Aliases (one per line: <code>account=alias</code>)</label>
+        <textarea id="merge_account_aliases" rows="6" placeholder="NL92INGB...=ING Shared\nM56638696=Savings Shared"></textarea>
+
+        <label for="merge_savings_accounts">Savings Accounts (one per line: <code>id=account|name</code>)</label>
+        <textarea id="merge_savings_accounts" rows="6" placeholder="M56638696=M56638696|Savings Shared\nR59575700=R59575700|Savings Marco"></textarea>
+        <p class="hint">These values are merged into each job config automatically.</p>
+      </div>
+    </details>
+
+    <details class="config-group" id="config-ollama">
+      <summary>Ollama</summary>
+      <div class="config-group-body">
+        <label class="inline-option">
+          <input id="ollama_enabled" type="checkbox">
+          Enable Ollama categorization
+        </label>
+
+        <label for="ollama_url">Ollama URL</label>
+        <input id="ollama_url" type="text" placeholder="http://localhost:11434">
+
+        <label for="ollama_model">Ollama Model</label>
+        <input id="ollama_model" type="text" placeholder="llama3.1:8b">
+
+        <label for="ollama_temperature">Temperature</label>
+        <input id="ollama_temperature" type="number" step="0.1" min="0" max="2">
+
+        <div class="grid-two">
+          <div>
+            <label for="ollama_batch_size">Ollama Batch Size</label>
+            <input id="ollama_batch_size" type="number" min="1" max="200" step="1">
+          </div>
+          <div>
+            <label class="inline-option">
+              <input id="ollama_auto_export_after_categorize" type="checkbox">
+              Auto-export after Ollama categorization
+            </label>
+          </div>
+        </div>
+
+        <label for="ollama_categories">Default Categories (comma-separated)</label>
+        <textarea id="ollama_categories" rows="4" placeholder="Groceries, Dining, Utilities"></textarea>
+
+        <label for="ollama_prompt_template">Ollama Prompt Template</label>
+        <textarea id="ollama_prompt_template" rows="8" placeholder="Use placeholders {categories_csv}, {categories_json}, {transaction_json}"></textarea>
+        <p class="hint">Placeholders: <code>{categories_csv}</code>, <code>{categories_json}</code>, <code>{transaction_json}</code>, <code>{transactions_json}</code></p>
+        <p class="hint">Execution model: one request per batch. Batch size controls how many transactions are sent per Ollama call.</p>
+      </div>
+    </details>
+
+    <button id="save-config" type="submit">Save configuration</button>
+  </form>
+
+  <hr>
+
+  <details class="config-group" open>
+    <summary>Import / Export</summary>
+    <div class="config-group-body">
+      <div class="small-controls">
+        <button id="export-config-yaml" type="button">Export YAML</button>
+        <button id="export-config-json" type="button">Export JSON</button>
+      </div>
+
+      <label for="import-config-file">Import Config File</label>
+      <input id="import-config-file" type="file" accept=".json,.yml,.yaml,application/json,text/yaml,text/x-yaml">
+      <div class="small-controls">
+        <button id="import-config-btn" type="button">Import config</button>
+      </div>
+
+      <label for="config-write-path">Write Config To Server File</label>
+      <input id="config-write-path" type="text" value="config/system_config.yml" placeholder="Relative to data dir, e.g. config/system_config.yml">
+      <div class="small-controls">
+        <select id="config-write-format">
+          <option value="yaml" selected>YAML</option>
+          <option value="json">JSON</option>
+        </select>
+        <button id="write-config-file-btn" type="button">Write file</button>
+      </div>
+      <p class="hint">Writes inside data directory: <code>{{ data_dir }}</code></p>
+    </div>
+  </details>
+
+  <details class="config-group danger-zone">
+    <summary>Danger Zone</summary>
+    <div class="config-group-body">
+      <p class="hint">Reset all saved settings to defaults. Optionally clears uploaded importer JSON files.</p>
+      <div class="small-controls">
+        <button id="reset-config-btn" type="button" class="danger-btn">Reset All Settings</button>
+      </div>
+    </div>
+  </details>
+
+  <p id="config-status" class="hint"></p>
+</section>
+{% endblock %}

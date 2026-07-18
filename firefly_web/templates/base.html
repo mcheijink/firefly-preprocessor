@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Firefly Merge{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <nav class="topnav">
+      <a class="nav-link {% if nav_active == 'merge' %}active{% endif %}" href="/">New merge</a>
+      <a class="nav-link {% if nav_active == 'jobs' %}active{% endif %}" href="/history">Jobs</a>
+      <a class="nav-link {% if nav_active == 'config' %}active{% endif %}" href="/config">Configuration</a>
+      <a id="queue-badge" class="queue-badge" href="#" hidden>working…</a>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <script type="module" src="/static/js/badge.js"></script>
+  <script type="module" src="/static/js/pages/{% block page_script %}noop{% endblock %}.js"></script>
+</body>
+</html>

@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Tuple
 
 import yaml
 
-from firefly_merge.main import DUPLICATE_FIELDNAMES, FIELDNAMES, summarize_firefly_result, upload_to_firefly
+from firefly_merge.main import FIELDNAMES, summarize_firefly_result, upload_to_firefly
 
 from .categorization import build_ollama_prompt, categorize_ollama_batch_with_trace, categorize_ollama_with_trace
-from .dedupe import apply_global_dedupe
+from .locks import get_job_lock
 from .settings import Settings
 from .store import JobStore
 
@@ -161,19 +161,11 @@ class JobRunner:
             if not merged_path.exists():
                 raise FileNotFoundError(f"Expected merged output was not created: {merged_path}")
 
-            dedupe_scope = str(options.get("dedupe_scope") or "within_job")
-            global_duplicates_added = 0
-            global_rows_inserted = 0
-            if dedupe_scope == "global":
-                log("Cross-run dedupe requested but disabled. Using current-merge-only dedupe.")
-            else:
-                log("Using current-merge-only dedupe (no cross-run fingerprint matching).")
-
             stats = {
                 "merged_rows": _count_csv_rows(merged_path),
                 "duplicate_rows": _count_csv_rows(duplicates_path),
-                "global_duplicates_added": global_duplicates_added,
-                "global_rows_inserted": global_rows_inserted,
+                "global_duplicates_added": 0,
+                "global_rows_inserted": 0,
             }
             artifacts = {
                 "merged_csv": str(merged_path),
@@ -328,7 +320,7 @@ class JobRunner:
                         request_payload=request_payload,
                     )
 
-                tmp_path = merged_path.with_name(f"{merged_path.stem}_upload_{batch_no}{merged_path.suffix}")
+                tmp_path = merged_path.with_name(f"{merged_path.stem}_upload_{export_id[:8]}_{batch_no}{merged_path.suffix}")
                 _write_csv(tmp_path, chunk_rows, FIELDNAMES)
                 log(f"[firefly] Batch {batch_no}: {tmp_path.name} ({batch_size} rows)")
                 started = time.perf_counter()
@@ -406,7 +398,8 @@ class JobRunner:
                 "target_seconds": round(target_seconds, 3),
             }
             if summary_lines:
-                log(f"Firefly response summary:\n{'\n\n'.join(summary_lines)}")
+                _summary_sep = "\n\n"
+                log(f"Firefly response summary:\n{_summary_sep.join(summary_lines)}")
 
             if failed_rows == 0:
                 self.store.set_firefly_export_completed(
@@ -599,6 +592,16 @@ class JobRunner:
 
         return {"queued": len(queued_tasks), "skipped": skipped, "total_rows": len(rows), "export_id": ""}
 
+    def _apply_categories_under_lock(self, job_id: str, merged_path: Path, assignments: Dict[int, str]) -> None:
+        if not assignments:
+            return
+        with get_job_lock(job_id):
+            rows, fieldnames = _read_csv(merged_path)
+            for row_index, category in assignments.items():
+                if 1 <= row_index <= len(rows):
+                    rows[row_index - 1]["category"] = category
+            _write_csv(merged_path, rows, fieldnames)
+
     def _run_ollama_categorization(
         self,
         job_id: str,
@@ -629,6 +632,8 @@ class JobRunner:
         if auto_export:
             log("Auto-export enabled: categorized batches will be queued for export immediately.")
 
+        all_successful: List[int] = []
+
         try:
             for task_batch in _chunk_items(queued_tasks, pipeline_batch_size):
                 if self._is_ollama_cancelled(job_id):
@@ -656,6 +661,7 @@ class JobRunner:
                 prompt_text = ""
                 assigned_categories: List[str] = []
                 successful_batch_indices: List[int] = []
+                batch_assignments: Dict[int, str] = {}
 
                 try:
                     if len(batch_rows) == 1:
@@ -691,10 +697,10 @@ class JobRunner:
                             assigned_categories = assigned_categories[: len(batch_rows)]
 
                     for idx, task in enumerate(valid_tasks):
-                        row_idx = int(task["row_index"]) - 1
+                        row_idx = int(task["row_index"])
                         category = assigned_categories[idx] if idx < len(assigned_categories) else "Other"
-                        rows[row_idx]["category"] = category
-                        successful_batch_indices.append(int(task["row_index"]))
+                        batch_assignments[row_idx] = category
+                        successful_batch_indices.append(row_idx)
                         self.store.complete_ollama_event(
                             int(task["event_id"]),
                             response_text=response_text,
@@ -715,34 +721,27 @@ class JobRunner:
                     continue
 
                 try:
-                    _write_csv(merged_path, rows, fieldnames)
+                    self._apply_categories_under_lock(job_id, merged_path, batch_assignments)
                 except Exception:
                     # Keep processing queue even if persistence fails once.
                     pass
 
-                if auto_export:
-                    try:
-                        new_export_id = self.start_firefly_export(
-                            job_id=job_id,
-                            options={
-                                "auto_from_ollama": True,
-                                "batch_mode": True,
-                                "row_indices": sorted(set(successful_batch_indices)),
-                            },
-                        )
-                        log(
-                            f"Queued auto-export {new_export_id} for {len(successful_batch_indices)} categorized row(s)."
-                        )
-                    except Exception as exc:
-                        log(f"Failed to queue auto-export batch: {exc}")
+                all_successful.extend(successful_batch_indices)
+
+            if auto_export and all_successful and not self._is_ollama_cancelled(job_id):
+                try:
+                    new_export_id = self.start_firefly_export(
+                        job_id=job_id,
+                        options={
+                            "auto_from_ollama": True,
+                            "row_indices": sorted(set(all_successful)),
+                        },
+                    )
+                    log(f"Queued auto-export {new_export_id} for {len(set(all_successful))} categorized row(s).")
+                except Exception as exc:
+                    log(f"Failed to queue auto-export: {exc}")
         finally:
             self._clear_ollama_cancelled(job_id)
-
-        try:
-            _write_csv(merged_path, rows, fieldnames)
-        except Exception:
-            # Event states already captured. CSV write failures are intentionally silent here.
-            pass
 
     def _firefly_overrides_from_env(self) -> List[str]:
         cfg = self.store.get_system_config()
@@ -786,29 +785,6 @@ class JobRunner:
             if value:
                 args.extend([flag, value])
         return args
-
-    def _apply_global_dedupe(
-        self,
-        job_id: str,
-        merged_path: Path,
-        duplicates_path: Path,
-        log,
-    ) -> Tuple[int, int]:
-        rows, fieldnames = _read_csv(merged_path)
-        kept_rows, global_duplicates, inserted = apply_global_dedupe(rows, self.store, job_id)
-        _write_csv(merged_path, kept_rows, fieldnames or FIELDNAMES)
-
-        if not global_duplicates:
-            return 0, inserted
-
-        existing_duplicates: List[Dict[str, str]] = []
-        if duplicates_path.exists():
-            existing_duplicates, _ = _read_csv(duplicates_path)
-
-        combined = existing_duplicates + global_duplicates
-        _write_csv(duplicates_path, combined, DUPLICATE_FIELDNAMES)
-        log(f"Appended {len(global_duplicates)} cross-run duplicates to {duplicates_path.name}.")
-        return len(global_duplicates), inserted
 
 
 def _read_csv(path: Path) -> Tuple[List[Dict[str, str]], List[str]]:

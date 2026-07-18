@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}New merge{% endblock %}
+{% block page_script %}merge{% endblock %}
+{% block content %}
+<section class="panel subpanel" id="merge-form-panel">
+  <h1>Firefly Merge</h1>
+  <p class="subtitle">Merge ING and bunq exports for Firefly III without duplicate imports.</p>
+
+  <form id="job-form">
+    <label for="files">Bank Statement Files</label>
+    <div id="csv-drop-zone" class="drop-zone">
+      Drag & drop bank CSV / MT940 files here, or use the file picker.
+    </div>
+    <input id="files" name="files" type="file" accept=".csv,.mt940,.sta,.940,text/csv,text/plain" multiple required>
+    <p id="files-selected-hint" class="hint">No files selected.</p>
+    <hr>
+    <p class="hint">Using server-side configuration. Upload a config file above to override for this job.</p>
+
+    <label class="inline-option">
+      <input id="push_firefly" name="push_firefly" type="checkbox" value="true">
+      Upload to Firefly after merge
+    </label>
+
+    <details class="advanced-options">
+      <summary>Advanced Options</summary>
+      <div class="details-body">
+        <label class="inline-option">
+          <input id="no_dedup" name="no_dedup" type="checkbox" value="true">
+          Disable built-in per-job dedupe
+        </label>
+
+        <label class="inline-option">
+          <input id="dedupe_first_only" name="dedupe_first_only" type="checkbox" value="true">
+          Keep only first duplicate occurrence (drop all later repeats)
+        </label>
+      </div>
+    </details>
+
+    <button id="submit" type="submit">Start merge</button>
+  </form>
+</section>
+
+<section class="panel" id="recent-jobs-panel">
+  <h2>Recent jobs</h2>
+  <div id="recent-jobs-list" class="recent-jobs"></div>
+  <p class="hint" id="recent-jobs-empty" hidden>No jobs yet. Upload bank files above to start your first merge.</p>
+</section>
+{% endblock %}

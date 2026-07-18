@@ -2,26 +2,32 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import hmac
 import json
 import csv
 import shutil
+import threading
 import uuid
 import yaml
+from contextlib import asynccontextmanager
 from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-
-from firefly_merge.main import DUPLICATE_FIELDNAMES, FIELDNAMES
+from starlette.responses import JSONResponse, Response as StarletteResponse
 
 from .categorization import categorize_default
+from .locks import get_job_lock
 from .runner import JobRunner
 from .settings import Settings, load_settings
 from .store import JobStore, utc_now_iso
@@ -48,11 +54,112 @@ def _ensure_inside(path: Path, root: Path) -> None:
         raise HTTPException(status_code=400, detail="Invalid artifact path.") from exc
 
 
+def _ensure_inside_allowed_dirs(path: Path) -> None:
+    """Verify path is within data_dir or config_dir (two valid roots)."""
+    resolved = path.resolve()
+    for root in (settings.data_dir, settings.config_dir):
+        try:
+            resolved.relative_to(root.resolve())
+            return
+        except ValueError:
+            pass
+    raise HTTPException(status_code=400, detail="Path is outside the allowed directories.")
+
+
 settings: Settings = load_settings()
 store = JobStore(settings.db_path)
 runner = JobRunner(settings, store)
 
-app = FastAPI(title="Firefly Merge Web Tool", version="1.0.0")
+
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
+
+class _BasicAuthMiddleware(BaseHTTPMiddleware):
+    """Optional HTTP Basic Auth gate (activated when APP_SECRET is set)."""
+
+    def __init__(self, app, secret: str) -> None:
+        super().__init__(app)
+        self._secret_bytes = secret.encode("utf-8")
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/api/health":
+            return await call_next(request)
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(auth[6:]).decode("utf-8")
+                _, _, password = decoded.partition(":")
+                if hmac.compare_digest(password.encode("utf-8"), self._secret_bytes):
+                    return await call_next(request)
+            except Exception:
+                pass
+        return StarletteResponse(
+            content="Unauthorized",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Firefly Merge"'},
+            media_type="text/plain",
+        )
+
+
+class _CsrfMiddleware(BaseHTTPMiddleware):
+    """Reject cross-origin state-changing requests via Origin header check."""
+
+    _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method not in self._SAFE_METHODS:
+            origin = request.headers.get("Origin", "")
+            if origin:
+                host = request.headers.get("Host", "")
+                origin_host = urlparse(origin).netloc
+                if origin_host and origin_host != host:
+                    return JSONResponse({"detail": "CSRF check failed."}, status_code=403)
+        return await call_next(request)
+
+
+class _MaxUploadSizeMiddleware(BaseHTTPMiddleware):
+    """Reject requests whose declared Content-Length exceeds the configured limit."""
+
+    def __init__(self, app, max_bytes: int) -> None:
+        super().__init__(app)
+        self._max_bytes = max_bytes
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > self._max_bytes:
+                    limit_mb = self._max_bytes // (1024 * 1024)
+                    return JSONResponse(
+                        {"detail": f"Upload size exceeds the {limit_mb} MB limit."},
+                        status_code=413,
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    settings.jobs_dir.mkdir(parents=True, exist_ok=True)
+    store.initialize()
+    yield
+
+
+app = FastAPI(title="Firefly Merge Web Tool", version="1.0.0", lifespan=_lifespan)
+
+# Middleware is applied in LIFO order — auth added last = outermost (first to run).
+if settings.max_upload_bytes > 0:
+    app.add_middleware(_MaxUploadSizeMiddleware, max_bytes=settings.max_upload_bytes)
+app.add_middleware(_CsrfMiddleware)
+if settings.app_secret:
+    app.add_middleware(_BasicAuthMiddleware, secret=settings.app_secret)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
@@ -75,7 +182,7 @@ class SystemConfigPayload(BaseModel):
 
 
 class ManualCategoryUpdateRequest(BaseModel):
-    merge_row_index: int = Field(ge=1)
+    merge_row_index: int = Field(ge=1, le=10_000_000)
     category: str = ""
 
 
@@ -100,35 +207,49 @@ class ConfigResetRequest(BaseModel):
     clear_uploaded_importer_files: bool = True
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    settings.jobs_dir.mkdir(parents=True, exist_ok=True)
-    store.initialize()
+def _render_page(request: Request, template: str, context: Dict[str, object] | None = None) -> HTMLResponse:
+    payload = {"default_config_path": str(settings.default_config_path), "data_dir": str(settings.data_dir)}
+    if context:
+        payload.update(context)
+    return templates.TemplateResponse(request, template, payload)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "default_config_path": str(settings.default_config_path),
-            "data_dir": str(settings.data_dir),
-        },
-    )
+async def merge_page(request: Request) -> HTMLResponse:
+    return _render_page(request, "merge.html", {"nav_active": "merge"})
+
+
+@app.get("/history", response_class=HTMLResponse)
+async def history_page(request: Request) -> HTMLResponse:
+    return _render_page(request, "history.html", {"nav_active": "jobs"})
 
 
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        "config.html",
-        {
-            "request": request,
-            "default_config_path": str(settings.default_config_path),
-            "data_dir": str(settings.data_dir),
-        },
-    )
+    return _render_page(request, "config.html", {"nav_active": "config"})
+
+
+_JOB_PAGES = {
+    "": ("job_status.html", "status"),
+    "review": ("review.html", "review"),
+    "transactions": ("transactions.html", "transactions"),
+    "balances": ("balances.html", "balances"),
+    "export": ("export.html", "export"),
+}
+
+
+@app.get("/jobs/{job_id}", response_class=HTMLResponse)
+async def job_status_page(request: Request, job_id: str) -> HTMLResponse:
+    template, subnav = _JOB_PAGES[""]
+    return _render_page(request, template, {"nav_active": "jobs", "job_id": job_id, "subnav_active": subnav})
+
+
+@app.get("/jobs/{job_id}/{section}", response_class=HTMLResponse)
+async def job_section_page(request: Request, job_id: str, section: str) -> HTMLResponse:
+    if section not in _JOB_PAGES or section == "":
+        raise HTTPException(status_code=404, detail="Unknown job page.")
+    template, subnav = _JOB_PAGES[section]
+    return _render_page(request, template, {"nav_active": "jobs", "job_id": job_id, "subnav_active": subnav})
 
 
 @app.get("/api/health")
@@ -140,19 +261,12 @@ async def health() -> Dict[str, str]:
 async def create_job(
     files: List[UploadFile] = File(...),
     config_file: Optional[UploadFile] = File(default=None),
-    dedupe_scope: str = Form(default="within_job"),
     no_dedup: bool = Form(default=False),
     dedupe_first_only: bool = Form(default=False),
     push_firefly: bool = Form(default=False),
 ) -> Dict[str, str]:
     if not files:
         raise HTTPException(status_code=400, detail="At least one bank statement file is required.")
-
-    dedupe_scope = dedupe_scope.strip().lower()
-    if dedupe_scope == "global":
-        dedupe_scope = "within_job"
-    if dedupe_scope not in {"within_job"}:
-        raise HTTPException(status_code=400, detail="dedupe_scope must be within_job.")
 
     job_id = uuid.uuid4().hex
     job_dir = (settings.jobs_dir / job_id).resolve()
@@ -182,13 +296,12 @@ async def create_job(
         if not config_path.exists():
             raise HTTPException(
                 status_code=400,
-                detail=f"No config uploaded and default config does not exist at: {config_path}",
+                detail="No config file was uploaded and no default config is present on the server.",
             )
 
     config_path = _build_effective_job_config(base_config_path=config_path, job_dir=job_dir)
 
     options = {
-        "dedupe_scope": dedupe_scope,
         "no_dedup": no_dedup,
         "dedupe_first_only": dedupe_first_only,
         "push_firefly": push_firefly,
@@ -214,85 +327,6 @@ async def create_job(
     return {"job_id": job_id, "status": "queued"}
 
 
-@app.post("/api/jobs/import")
-async def import_merged_job(
-    merged_file: UploadFile = File(...),
-    duplicates_file: Optional[UploadFile] = File(default=None),
-) -> Dict[str, str]:
-    raw_name = str(merged_file.filename or "").strip()
-    if not raw_name:
-        raw_name = "merged_import.csv"
-
-    job_id = uuid.uuid4().hex
-    job_dir = (settings.jobs_dir / job_id).resolve()
-    input_dir = (job_dir / "input").resolve()
-    output_dir = (job_dir / "output").resolve()
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    merged_name = _safe_filename(raw_name)
-    merged_input_path = (input_dir / merged_name).resolve()
-    with merged_input_path.open("wb") as handle:
-        shutil.copyfileobj(merged_file.file, handle)
-    await merged_file.close()
-
-    merged_rows, merged_fieldnames = read_transactions(merged_input_path)
-    normalized_rows, normalized_fields = _normalize_imported_merged_rows(merged_rows, merged_fieldnames)
-    merged_output_path = (output_dir / "merged.csv").resolve()
-    _write_rows_csv(merged_output_path, normalized_rows, normalized_fields)
-
-    duplicates_output_path = (output_dir / "merged_duplicates.csv").resolve()
-    duplicate_rows_count = 0
-    input_files = [merged_name]
-    if duplicates_file is not None and duplicates_file.filename:
-        dup_name = _safe_filename(duplicates_file.filename)
-        dup_input_path = (input_dir / dup_name).resolve()
-        with dup_input_path.open("wb") as handle:
-            shutil.copyfileobj(duplicates_file.file, handle)
-        await duplicates_file.close()
-        dup_rows, dup_fields = read_transactions(dup_input_path)
-        normalized_dup_rows, normalized_dup_fields = _normalize_imported_duplicates_rows(dup_rows, dup_fields)
-        _write_rows_csv(duplicates_output_path, normalized_dup_rows, normalized_dup_fields)
-        duplicate_rows_count = len(normalized_dup_rows)
-        input_files.append(dup_name)
-    elif duplicates_output_path.exists():
-        try:
-            duplicates_output_path.unlink()
-        except OSError:
-            pass
-
-    options = {
-        "import_mode": "merged_csv",
-        "duplicate_review": {
-            "required": bool(duplicate_rows_count > 0),
-            "confirmed": bool(duplicate_rows_count <= 0),
-            "confirmed_at": utc_now_iso() if duplicate_rows_count <= 0 else "",
-            "restored_rows_total": 0,
-            "updated_at": utc_now_iso(),
-        },
-    }
-    store.create_job(job_id=job_id, input_files=input_files, options=options)
-    store.append_log(job_id, f"Imported merged CSV: {merged_name}")
-    if duplicate_rows_count:
-        store.append_log(job_id, f"Imported duplicates CSV rows: {duplicate_rows_count}")
-    store.set_completed(
-        job_id=job_id,
-        artifacts={
-            "merged_csv": str(merged_output_path),
-            "duplicates_csv": str(duplicates_output_path) if duplicate_rows_count else "",
-            "reconciliation_csv": "",
-        },
-        stats={
-            "merged_rows": len(normalized_rows),
-            "duplicate_rows": duplicate_rows_count,
-            "global_duplicates_added": 0,
-            "global_rows_inserted": 0,
-        },
-        message="Imported merged CSV as completed job.",
-    )
-    return {"job_id": job_id, "status": "completed"}
-
-
 @app.get("/api/jobs")
 async def list_jobs(limit: int = 100) -> Dict[str, object]:
     return {"jobs": store.list_jobs(limit=limit)}
@@ -300,6 +334,11 @@ async def list_jobs(limit: int = 100) -> Dict[str, object]:
 
 @app.delete("/api/jobs/{job_id}")
 async def delete_job(job_id: str) -> Dict[str, object]:
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if str(job.get("status") or "").strip() == "running":
+        raise HTTPException(status_code=409, detail="Cannot delete a running job. Stop the job first.")
     deleted = store.delete_job(job_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Job not found.")
@@ -328,6 +367,31 @@ async def get_job(job_id: str) -> Dict[str, object]:
             artifact_urls[artifact_key] = f"/api/jobs/{job_id}/artifacts/{artifact_key}"
     job["artifact_urls"] = artifact_urls
     return job
+
+
+@app.get("/api/jobs/{job_id}/summary")
+async def get_job_summary(job_id: str) -> Dict[str, object]:
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    review = _compute_duplicate_review_status(job_id)
+    total_rows = 0
+    categorized_rows = 0
+    try:
+        merged_path = _resolve_job_merged_path(job_id)
+        rows, _ = read_transactions(merged_path)
+        total_rows = len(rows)
+        categorized_rows = sum(1 for r in rows if str(r.get("category") or "").strip())
+    except HTTPException:
+        pass
+    exports = store.list_firefly_exports(job_id=job_id, limit=1)
+    return {
+        "job": job,
+        "review": review,
+        "total_rows": total_rows,
+        "categorized_rows": categorized_rows,
+        "latest_export": exports[0] if exports else None,
+    }
 
 
 @app.get("/api/jobs/{job_id}/transactions")
@@ -435,11 +499,12 @@ async def restore_duplicate_review_rows(
     if not selected:
         raise HTTPException(status_code=400, detail="Select at least one duplicate row to restore.")
 
-    result = restore_duplicate_rows(
-        merged_path=merged_path,
-        duplicates_path=duplicates_path,
-        duplicate_row_indices=selected,
-    )
+    with get_job_lock(job_id):
+        result = restore_duplicate_rows(
+            merged_path=merged_path,
+            duplicates_path=duplicates_path,
+            duplicate_row_indices=selected,
+        )
     store.update_job_stats(
         job_id=job_id,
         patch={
@@ -529,12 +594,13 @@ async def get_job_balances(job_id: str) -> Dict[str, object]:
 async def categorize_default_endpoint(job_id: str, payload: CategorizeRequest = Body(...)) -> Dict[str, object]:
     _ensure_duplicate_review_ready(job_id)
     merged_path = _resolve_job_merged_path(job_id)
-    result = apply_categories(
-        path=merged_path,
-        row_indices=payload.row_indices,
-        assign_category=categorize_default,
-        overwrite=payload.overwrite,
-    )
+    with get_job_lock(job_id):
+        result = apply_categories(
+            path=merged_path,
+            row_indices=payload.row_indices,
+            assign_category=categorize_default,
+            overwrite=payload.overwrite,
+        )
     return {"mode": "default", **result}
 
 
@@ -613,11 +679,12 @@ async def categorize_ollama_endpoint(job_id: str, payload: CategorizeRequest = B
 @app.post("/api/jobs/{job_id}/transactions/category")
 async def update_transaction_category(job_id: str, payload: ManualCategoryUpdateRequest) -> Dict[str, object]:
     merged_path = _resolve_job_merged_path(job_id)
-    result = set_category_by_row_index(
-        path=merged_path,
-        row_index=payload.merge_row_index,
-        category=payload.category,
-    )
+    with get_job_lock(job_id):
+        result = set_category_by_row_index(
+            path=merged_path,
+            row_index=payload.merge_row_index,
+            category=payload.category,
+        )
     return {"status": "ok", **result}
 
 
@@ -1068,6 +1135,7 @@ async def verify_importer_json(path: str = "") -> Dict[str, object]:
             target = candidate.resolve()
         else:
             target = (settings.data_dir / candidate).resolve()
+        _ensure_inside_allowed_dirs(target)
     else:
         cfg = store.get_system_config()
         importer = cfg.get("importer", {}) if isinstance(cfg, dict) else {}
@@ -1076,6 +1144,7 @@ async def verify_importer_json(path: str = "") -> Dict[str, object]:
             target = Path(configured).resolve()
     if target is None:
         raise HTTPException(status_code=404, detail="No importer JSON path configured.")
+    _ensure_inside_allowed_dirs(target)
     verification = _verify_importer_json_file(target)
     return {"status": "ok", "verification": verification}
 
@@ -1187,18 +1256,18 @@ def _resolve_config_output_path(raw_path: str) -> Path:
 def _verify_importer_json_file(path: Path) -> Dict[str, object]:
     target = path.resolve()
     if not target.exists():
-        raise HTTPException(status_code=404, detail=f"Importer JSON file does not exist: {target}")
+        raise HTTPException(status_code=404, detail="Importer JSON file does not exist.")
     if not target.is_file():
-        raise HTTPException(status_code=400, detail=f"Importer JSON path is not a file: {target}")
+        raise HTTPException(status_code=400, detail="Importer JSON path is not a regular file.")
     raw_bytes = target.read_bytes()
     try:
         text = raw_bytes.decode("utf-8-sig", errors="strict")
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Importer JSON is not UTF-8: {target}") from exc
+        raise HTTPException(status_code=400, detail="Importer JSON file is not valid UTF-8.") from exc
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Importer JSON is invalid JSON: {target}") from exc
+        raise HTTPException(status_code=400, detail="Importer JSON file contains invalid JSON.") from exc
     if isinstance(parsed, dict):
         keys = sorted(str(k) for k in parsed.keys())
     else:
@@ -1215,71 +1284,6 @@ def _verify_importer_json_file(path: Path) -> Dict[str, object]:
         "top_level_key_count": len(keys),
         "top_level_keys": keys[:100],
     }
-
-
-def _normalize_imported_merged_rows(
-    rows: List[Dict[str, str]],
-    fieldnames: List[str],
-) -> tuple[List[Dict[str, str]], List[str]]:
-    if not fieldnames:
-        raise HTTPException(status_code=400, detail="Imported CSV is empty or has no header.")
-    lowered = {str(name or "").strip().lower() for name in fieldnames}
-    required = {"date", "amount", "description"}
-    if not required.issubset(lowered):
-        raise HTTPException(
-            status_code=400,
-            detail="Imported CSV must contain at least: date, amount, description.",
-        )
-
-    ordered_fields: List[str] = list(FIELDNAMES)
-    for name in fieldnames:
-        token = str(name or "").strip()
-        if token and token not in ordered_fields:
-            ordered_fields.append(token)
-
-    field_lookup = {str(name or "").strip().lower(): str(name or "").strip() for name in fieldnames}
-    normalized_rows: List[Dict[str, str]] = []
-    for row in rows:
-        out: Dict[str, str] = {}
-        for field in ordered_fields:
-            source_key = field_lookup.get(field.lower(), field)
-            value = row.get(source_key, "")
-            out[field] = str(value if value is not None else "")
-        normalized_rows.append(out)
-    return normalized_rows, ordered_fields
-
-
-def _normalize_imported_duplicates_rows(
-    rows: List[Dict[str, str]],
-    fieldnames: List[str],
-) -> tuple[List[Dict[str, str]], List[str]]:
-    if not fieldnames:
-        return [], list(DUPLICATE_FIELDNAMES)
-    ordered_fields: List[str] = list(DUPLICATE_FIELDNAMES)
-    for name in fieldnames:
-        token = str(name or "").strip()
-        if token and token not in ordered_fields:
-            ordered_fields.append(token)
-    field_lookup = {str(name or "").strip().lower(): str(name or "").strip() for name in fieldnames}
-    normalized_rows: List[Dict[str, str]] = []
-    for row in rows:
-        out: Dict[str, str] = {}
-        for field in ordered_fields:
-            source_key = field_lookup.get(field.lower(), field)
-            value = row.get(source_key, "")
-            out[field] = str(value if value is not None else "")
-        normalized_rows.append(out)
-    return normalized_rows, ordered_fields
-
-
-def _write_rows_csv(path: Path, rows: List[Dict[str, str]], fieldnames: List[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames or [])
-        if fieldnames:
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({name: row.get(name, "") for name in fieldnames})
 
 
 def _compute_duplicate_review_status(job_id: str) -> Dict[str, object]:
@@ -1381,11 +1385,11 @@ def _resolve_job_transaction_files(job_id: str) -> tuple[Path, Optional[Path]]:
 
 def _build_effective_job_config(base_config_path: Path, job_dir: Path) -> Path:
     if not base_config_path.exists():
-        raise HTTPException(status_code=400, detail=f"Config does not exist: {base_config_path}")
+        raise HTTPException(status_code=400, detail="Config file does not exist.")
     try:
         loaded = yaml.safe_load(base_config_path.read_text(encoding="utf-8")) or {}
     except Exception as exc:  # pragma: no cover - malformed YAML
-        raise HTTPException(status_code=400, detail=f"Invalid config file: {base_config_path}") from exc
+        raise HTTPException(status_code=400, detail="Config file is invalid or cannot be read.") from exc
 
     if not isinstance(loaded, dict):
         loaded = {}

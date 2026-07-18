@@ -1,0 +1,171 @@
+{% extends "base_job.html" %}
+{% block title %}Transactions{% endblock %}
+{% block page_script %}transactions{% endblock %}
+{% block job_content %}
+<section class="panel subpanel" id="transactions-panel">
+  <h2>Transactions</h2>
+  <div id="transactions-content">
+    <div class="tx-toolbar">
+      <div class="tx-toolbar-row">
+        <div class="tx-toolbar-group tx-grow">
+          <input id="tx-search" type="text" placeholder="Search description, account, source file, external id...">
+        </div>
+        <button type="button" id="apply-tx-filters">Apply</button>
+        <div class="small-controls">
+          <button type="button" id="select-visible">Select visible</button>
+          <button type="button" id="clear-selection">Clear selection</button>
+          <button type="button" id="tx-columns-btn" class="secondary-btn">⚙ Columns</button>
+          <label for="tx-page-size">Page size</label>
+          <select id="tx-page-size">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+      </div>
+      <div class="tx-toolbar-row tx-filters-grid">
+        <select id="tx-decision-filter">
+          <option value="all" selected>All decisions</option>
+          <option value="merged">Merged (kept)</option>
+          <option value="dropped">Dropped (duplicates)</option>
+        </select>
+        <label class="inline-option">
+          <input id="tx-include-dropped" type="checkbox" checked>
+          Include dropped
+        </label>
+        <select id="tx-source-file-filter">
+          <option value="">All source files</option>
+        </select>
+        <select id="tx-sort-by">
+          <option value="id">Sort: ID</option>
+          <option value="decision">Sort: Decision</option>
+          <option value="date" selected>Sort: Date</option>
+          <option value="amount">Sort: Amount</option>
+          <option value="category">Sort: Category</option>
+          <option value="description">Sort: Description</option>
+          <option value="source_account">Sort: Source account</option>
+          <option value="destination_account">Sort: Destination account</option>
+        </select>
+        <select id="tx-sort-dir">
+          <option value="asc" selected>Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+      </div>
+      <div class="tx-toolbar-row">
+        <div id="tx-page-summary" class="hint"></div>
+        <div class="small-controls pagination-controls">
+          <button type="button" id="tx-page-first" class="secondary-btn">&laquo;</button>
+          <button type="button" id="tx-page-prev" class="secondary-btn">&lsaquo;</button>
+          <div id="tx-page-buttons" class="page-buttons"></div>
+          <button type="button" id="tx-page-next" class="secondary-btn">&rsaquo;</button>
+          <button type="button" id="tx-page-last" class="secondary-btn">&raquo;</button>
+        </div>
+      </div>
+
+      <div class="tx-toolbar-row category-actions">
+        <label class="inline-option">
+          <input id="overwrite-category" type="checkbox">
+          Overwrite existing categories
+        </label>
+        <button type="button" id="categorize-ollama">Categorize selected (Ollama)</button>
+        <button type="button" id="categorize-all-ollama">Categorize all (Ollama)</button>
+        <label class="inline-option">
+          <input id="auto-export-after-categorize" type="checkbox">
+          Auto-export categorized batches to Firefly
+        </label>
+        <button type="button" id="download-categorized-csv" class="secondary-btn">Download categorized CSV</button>
+      </div>
+    </div>
+
+    <div id="transaction-summary" class="hint"></div>
+    <div class="table-wrap">
+      <table id="transactions-table" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="select"><input type="checkbox" id="toggle-all-visible"></th>
+            <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+            <th data-col="decision" data-sort-key="decision" class="th-sortable">Decision</th>
+            <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+            <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+            <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+            <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+            <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+            <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+            <th data-col="dropped_pairing">Dropped Pairing</th>
+            <th data-col="details">Details</th>
+          </tr>
+        </thead>
+        <tbody id="transactions-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<details class="cat-log">
+  <summary>Categorization log</summary>
+  <section class="panel subpanel" id="ollama-panel">
+    <div class="row-between">
+      <h2>Ollama Queue / Audit</h2>
+      <div class="small-controls">
+        <input id="ollama-job-filter" type="text" placeholder="Filter by job id">
+        <select id="ollama-status-group">
+          <option value="queue" selected>Queue (queued/running)</option>
+          <option value="completed">History (completed/failed)</option>
+          <option value="all">All statuses</option>
+        </select>
+        <label for="ollama-page-size">Page size</label>
+        <select id="ollama-page-size">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+        <select id="ollama-sort-by">
+          <option value="id" selected>Sort: ID</option>
+          <option value="status">Sort: Status</option>
+          <option value="date">Sort: Date</option>
+          <option value="amount">Sort: Amount</option>
+          <option value="category">Sort: Category</option>
+          <option value="description">Sort: Description</option>
+          <option value="source_account">Sort: Source account</option>
+          <option value="destination_account">Sort: Destination account</option>
+        </select>
+        <select id="ollama-sort-dir">
+          <option value="asc" selected>Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+        <button type="button" id="refresh-ollama-events">Refresh</button>
+        <button type="button" id="ollama-columns-btn" class="secondary-btn">⚙ Columns</button>
+        <button type="button" id="stop-ollama-queue" class="secondary-btn">Stop Queue</button>
+        <button type="button" id="delete-ollama-queue" class="danger-btn">Delete Queue</button>
+      </div>
+    </div>
+    <p id="ollama-metrics" class="hint">No Ollama queue metrics yet.</p>
+    <p id="ollama-events-summary" class="hint"></p>
+    <div class="small-controls pagination-controls">
+      <button type="button" id="ollama-page-first" class="secondary-btn">&laquo;</button>
+      <button type="button" id="ollama-page-prev" class="secondary-btn">&lsaquo;</button>
+      <div id="ollama-page-buttons" class="page-buttons"></div>
+      <button type="button" id="ollama-page-next" class="secondary-btn">&rsaquo;</button>
+      <button type="button" id="ollama-page-last" class="secondary-btn">&raquo;</button>
+    </div>
+    <div class="table-wrap">
+      <table id="ollama-events-table" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+            <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+            <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+            <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+            <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+            <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+            <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+            <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+            <th data-col="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ollama-events-body"></tbody>
+      </table>
+    </div>
+  </section>
+</details>
+{% endblock %}

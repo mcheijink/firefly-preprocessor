@@ -1,0 +1,105 @@
+{% extends "base_job.html" %}
+{% block title %}Export{% endblock %}
+{% block page_script %}export{% endblock %}
+{% block job_content %}
+<section class="panel subpanel" id="export-panel">
+  <h2>Export To Firefly III</h2>
+  <div id="export-content">
+    <div class="row-between">
+      <p class="hint">Start export for the active merge job. Endpoint, token, importer JSON path, and batch size come from Configuration.</p>
+      <div class="small-controls">
+        <button type="button" id="refresh-export-status">Refresh</button>
+      </div>
+    </div>
+
+    <div class="small-controls">
+      <button type="button" id="start-firefly-export">Start export</button>
+      <button type="button" id="stop-firefly-export" class="secondary-btn">Stop export queue</button>
+      <button type="button" id="delete-firefly-export" class="danger-btn">Delete export queues</button>
+      <button type="button" id="exports-columns-btn" class="secondary-btn">⚙ Columns</button>
+    </div>
+    <p id="export-summary" class="hint">Exports run for this job using the settings from Configuration.</p>
+
+    <div class="table-wrap">
+      <table id="exports-table" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="export_id" data-sort-key="id" class="th-sortable">Export ID</th>
+            <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+            <th data-col="created" data-sort-key="created" class="th-sortable">Created</th>
+            <th data-col="updated" data-sort-key="updated" class="th-sortable">Updated</th>
+            <th data-col="rows" data-sort-key="rows" class="th-sortable">Rows</th>
+            <th data-col="batches" data-sort-key="batches" class="th-sortable">Batches</th>
+            <th data-col="message">Message</th>
+            <th data-col="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="exports-body"></tbody>
+      </table>
+    </div>
+
+    <h3 id="export-logs-heading" hidden>Export Logs</h3>
+    <pre id="export-logs" hidden></pre>
+
+    <h3>Export Queue / Audit</h3>
+    <div class="small-controls">
+      <select id="export-events-status-group">
+        <option value="queue" selected>Queue (queued/running)</option>
+        <option value="completed">History (completed/failed)</option>
+        <option value="all">All statuses</option>
+      </select>
+      <label for="export-events-page-size">Page size</label>
+      <select id="export-events-page-size">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+      <select id="export-events-sort-by">
+        <option value="id" selected>Sort: ID</option>
+        <option value="status">Sort: Status</option>
+        <option value="date">Sort: Date</option>
+        <option value="amount">Sort: Amount</option>
+        <option value="category">Sort: Category</option>
+        <option value="description">Sort: Description</option>
+        <option value="source_account">Sort: Source account</option>
+        <option value="destination_account">Sort: Destination account</option>
+        <option value="batch_number">Sort: Batch</option>
+      </select>
+      <select id="export-events-sort-dir">
+        <option value="asc" selected>Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+      <button type="button" id="refresh-export-events">Refresh queue</button>
+      <button type="button" id="export-events-columns-btn" class="secondary-btn">⚙ Columns</button>
+    </div>
+    <p id="export-events-metrics" class="hint">No export queue metrics yet.</p>
+    <p id="export-events-summary" class="hint"></p>
+    <div class="small-controls pagination-controls">
+      <button type="button" id="export-events-page-first" class="secondary-btn">&laquo;</button>
+      <button type="button" id="export-events-page-prev" class="secondary-btn">&lsaquo;</button>
+      <div id="export-events-page-buttons" class="page-buttons"></div>
+      <button type="button" id="export-events-page-next" class="secondary-btn">&rsaquo;</button>
+      <button type="button" id="export-events-page-last" class="secondary-btn">&raquo;</button>
+    </div>
+    <div class="table-wrap">
+      <table id="export-events-table" class="responsive-table">
+        <thead>
+          <tr>
+            <th data-col="id" data-sort-key="id" class="th-sortable">ID</th>
+            <th data-col="status" data-sort-key="status" class="th-sortable">Status</th>
+            <th data-col="date" data-sort-key="date" class="th-sortable">Date</th>
+            <th data-col="amount" data-sort-key="amount" class="th-sortable">Amount</th>
+            <th data-col="category" data-sort-key="category" class="th-sortable">Category</th>
+            <th data-col="description" data-sort-key="description" class="th-sortable">Description</th>
+            <th data-col="source_account" data-sort-key="source_account" class="th-sortable">Source Account</th>
+            <th data-col="destination_account" data-sort-key="destination_account" class="th-sortable">Destination Account</th>
+            <th data-col="batch" data-sort-key="batch_number" class="th-sortable">Batch</th>
+            <th data-col="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="export-events-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
