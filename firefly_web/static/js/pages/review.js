@@ -475,6 +475,56 @@ if (dupPageSizeInput) {
   });
 });
 
+if (dupPageFirstBtn) {
+  dupPageFirstBtn.addEventListener("click", async () => {
+    if (dupPage <= 1) return;
+    dupPage = 1;
+    try {
+      await loadDuplicateReview(false);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+}
+
+if (dupPagePrevBtn) {
+  dupPagePrevBtn.addEventListener("click", async () => {
+    if (dupPage <= 1) return;
+    dupPage -= 1;
+    try {
+      await loadDuplicateReview(false);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+}
+
+if (dupPageNextBtn) {
+  dupPageNextBtn.addEventListener("click", async () => {
+    const totalPages = getDupTotalPages();
+    if (dupPage >= totalPages) return;
+    dupPage += 1;
+    try {
+      await loadDuplicateReview(false);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+}
+
+if (dupPageLastBtn) {
+  dupPageLastBtn.addEventListener("click", async () => {
+    const totalPages = getDupTotalPages();
+    if (dupPage >= totalPages) return;
+    dupPage = totalPages;
+    try {
+      await loadDuplicateReview(false);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+}
+
 // Initial load: fetch the status banner first (fast, no row payload) so the
 // gate text appears immediately, then load the (paginated) row table.
 async function initDuplicateReviewPage() {
