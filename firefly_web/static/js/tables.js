@@ -18,12 +18,21 @@ export function escapeHtml(raw) {
 }
 
 /**
- * Verbatim from app.js:1889 (amountClass). No globals referenced; exported
- * as a shared dependency of renderTransactionRow (see escapeHtml note above).
+ * From app.js:1889 (amountClass). MODIFIED (Task 12, mandatory carried-over
+ * fix from Task 8 review, step 12.3 of the plan): the legacy version emitted
+ * a bare " amount-neg" suffix for negative amounts, matching the old
+ * stylesheet's `.amount-neg` rule. The new stylesheet (styles.css:83-85)
+ * instead styles `td.num.credit` / `td.num.debit` (with `td.num` handling
+ * right-alignment/mono for all three cases). This now returns " credit" for
+ * amount > 0, " debit" for amount < 0, and "" for zero/unparseable, so call
+ * sites of the form `class="num${amountClass(x)}"` (renderTransactionRow
+ * here, and the ollama/duplicate-review row renderers in later tasks) now
+ * emit "num credit" / "num debit" / "num" without needing their own changes.
  */
 export function amountClass(amount) {
   const num = parseFloat(String(amount || "").replace(",", "."));
-  return !isNaN(num) && num < 0 ? " amount-neg" : "";
+  if (isNaN(num) || num === 0) return "";
+  return num > 0 ? " credit" : " debit";
 }
 
 /**
