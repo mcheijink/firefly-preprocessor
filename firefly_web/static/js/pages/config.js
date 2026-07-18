@@ -358,6 +358,16 @@ loadConfig().catch((error) => {
   setStatus(error.message);
 });
 
+// Deep links like /config#config-ollama: expand the targeted section and
+// bring it into view (details sections are collapsed by default).
+if (window.location.hash) {
+  const target = document.querySelector(window.location.hash);
+  if (target) {
+    if (target.tagName === "DETAILS") target.open = true;
+    target.scrollIntoView();
+  }
+}
+
 // Reveal-toggle wiring for the password-style firefly_secret/firefly_token
 // inputs (brief Task 14, Step 14.1).
 document.querySelectorAll(".reveal-btn").forEach((btn) => {

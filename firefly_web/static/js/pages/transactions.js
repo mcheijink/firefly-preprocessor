@@ -341,7 +341,7 @@ function applyOllamaConfigGate(config) {
     }
   }
   ollamaConfigBannerEl.innerHTML =
-    `AI categorization is off — <a href="/config">enable Ollama in Configuration</a>. ` +
+    `AI categorization is off — <a href="/config#config-ollama">enable Ollama in Configuration</a>. ` +
     `You can still set categories manually below.`;
 }
 
